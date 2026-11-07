@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crorepati Study Room</title>
+<meta name="description" content="A KBC-style quiz and a study mode that turns your notes into questions.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+(function(){var t;try{t=localStorage.getItem('kb-theme')}catch(e){}
+if(!t)t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';
+document.documentElement.dataset.theme=t})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+:root{--font-ui:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;--font-mono:"Spline Sans Mono",ui-monospace,Menlo,Consolas,monospace;
+  --bg:#eaf1fb;--surface:#f6f9fe;--text:#1b2638;--muted:#5a6a87;--line:#cfdcf0;--ok:#2f7d58;--on-ok:#fff;--err:#c24848;--on-err:#fff;
+  --accent:#2f6fd0;--on-accent:#fff;--glow:rgba(47,111,208,.35);--shadow:0 18px 40px -22px rgba(30,60,110,.35);
+  --b1:#82b4f2;--b2:#8fd1c4;--b3:#f1a6a0;--b4:#bfd0ea;--backdrop:rgba(27,38,56,.4)}
+:root[data-theme=dark]{--bg:#0f172a;--surface:#1b2740;--text:#e8edf6;--muted:#9aa8c2;--line:#2d3d5c;--ok:#7cc9a0;--on-ok:#0c2418;--err:#e48f8f;--on-err:#2a0f0f;
+  --accent:#f4b942;--on-accent:#1b1405;--glow:rgba(244,185,66,.35);--shadow:0 18px 40px -22px rgba(0,0,0,.7);
+  --b1:#5b94e0;--b2:#62b3a5;--b3:#d98f8a;--b4:#8fa3c4;--backdrop:rgba(0,0,0,.6);color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font:400 1rem/1.5 var(--font-ui);transition:background .25s,color .25s;padding-top:env(safe-area-inset-top,0px)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+[hidden]{display:none!important}
+.top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:1rem;max-width:62rem;margin:0 auto;padding:1.25rem 1.5rem}
+.brand{font-weight:700;font-size:1.35rem;letter-spacing:-.02em;color:inherit;text-decoration:none}
+.tabs{display:flex;gap:.25rem;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:.25rem;overflow-x:auto;max-width:100%}
+.tabs a{font:600 .9rem var(--font-ui);color:var(--muted);text-decoration:none;border-radius:999px;padding:.45rem 1rem;white-space:nowrap}
+.tabs a:hover{color:var(--text)}
+.tabs a[aria-current=page]{background:var(--text);color:var(--bg)}
+.hdr-right{justify-self:end;display:flex;align-items:center;gap:.6rem;position:relative}
+.icon-btn{width:2.5rem;height:2.5rem;display:grid;place-items:center;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:50%;cursor:pointer}
+main{max-width:62rem;margin:0 auto;padding:1rem 1.5rem 4rem}
+.btn{font:600 .95rem var(--font-ui);color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.6rem 1.1rem;cursor:pointer;transition:.15s}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.small{padding:.35rem .75rem;font-size:.85rem}
+.btn.danger{color:var(--err)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+select,input[type=text],input[type=password],input[type=number]{font:500 .95rem var(--font-ui);color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:.55rem .75rem;max-width:100%}
+.seg{display:inline-flex;gap:.2rem;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:.2rem}
+.seg button{font:600 .85rem var(--font-ui);color:var(--muted);background:none;border:0;border-radius:999px;padding:.35rem .85rem;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--on-accent)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:1.4rem;margin:0 0 1rem;box-shadow:var(--shadow)}
+.panel h1,.panel h2{margin:0 0 .35rem;letter-spacing:-.02em}
+.muted{color:var(--muted)}.small{font-size:.8rem}
+.msg{min-height:1.4em;margin:.6rem 0 0;color:var(--muted);font-size:.9rem}.msg.bad{color:var(--err)}
+.row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+.field{display:grid;gap:.25rem;margin:.7rem 0;color:var(--muted);font-size:.85rem;max-width:26rem}
+.home-title{font-size:clamp(2rem,6vw,3.4rem);letter-spacing:-.035em;line-height:1.05;margin:1.5rem 0 .5rem;max-width:16ch}
+.home-sub{margin:0 0 2rem;color:var(--muted);font-size:1.1rem}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:1rem}
+.card{display:flex;flex-direction:column;gap:.35rem;padding:1.4rem;background:var(--surface);border:1px solid var(--line);border-radius:22px;color:inherit;text-decoration:none;box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
+.card:hover{border-color:var(--accent);transform:translateY(-3px)}
+.card h2{margin:.5rem 0 0;font-size:1.3rem;letter-spacing:-.02em}.card p{margin:0;color:var(--muted)}
+.card-emoji{width:3.2rem;height:3.2rem;display:grid;place-items:center;font-size:1.6rem;border-radius:16px;background:var(--b1)}
+.card:nth-child(2) .card-emoji{background:var(--b2)}.card:nth-child(3) .card-emoji{background:var(--b3)}
+/* sign-in gate + account */
+.authwrap{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:1rem;overflow:auto;background:var(--bg)}
+.authcard{width:min(24rem,100%);display:grid;gap:.8rem;padding:1.75rem;background:var(--surface);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow)}
+.auth-brand{font-size:1.5rem;font-weight:700;letter-spacing:-.02em}
+.authcard p{margin:0}.authcard .seg{justify-self:start}
+.authcard label{display:grid;gap:.25rem;font-size:.85rem;color:var(--muted)}
+.authcard input{font:500 1rem var(--font-ui);padding:.65rem .8rem}
+.authcard .btn{width:100%}
+.av-btn{display:grid;place-items:center;width:2.5rem;height:2.5rem;padding:0;border:2px solid var(--surface);border-radius:50%;box-shadow:0 0 0 1px var(--line);font:700 1rem var(--font-ui);text-transform:uppercase;cursor:pointer}
+.av-btn[aria-expanded=true]{box-shadow:0 0 0 2px var(--accent)}
+.av{flex:none;display:inline-grid;place-items:center;width:2rem;height:2rem;border-radius:50%;font:700 .9rem var(--font-ui);text-transform:uppercase}
+.av.lg{width:2.75rem;height:2.75rem;font-size:1.1rem}
+.badge{margin-left:.2rem;padding:.1rem .45rem;border-radius:99px;background:var(--accent);color:var(--on-accent);font-size:.7rem}
+.acct-menu{position:absolute;z-index:50;top:calc(100% + .6rem);right:0;width:min(19rem,92vw);padding:.9rem;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}
+.menu-head{display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem;padding:.2rem .2rem .8rem;border-bottom:1px solid var(--line)}
+.menu-list{display:grid;gap:.15rem}
+.menu-item{padding:.6rem .7rem;border:1px solid transparent;border-radius:12px;background:none;color:var(--text);font:600 .95rem var(--font-ui);text-align:left;cursor:pointer}
+.menu-item:hover{background:var(--bg)}.menu-item.danger{color:var(--err)}
+.menu-field{display:grid;gap:.25rem;margin:.4rem 0;color:var(--muted);font-size:.85rem}
+/* game */
+.game{display:grid;grid-template-columns:1fr 12.5rem;gap:1.2rem;align-items:start}
+.ladder{list-style:none;margin:0;padding:.6rem;display:flex;flex-direction:column-reverse;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:20px}
+.ladder li{position:relative;display:flex;justify-content:space-between;gap:.5rem;padding:.25rem .7rem;border-radius:10px;font-size:.88rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.ladder li.safe{color:var(--text);font-weight:700}.ladder li.done{color:var(--ok)}
+.ladder li.now{background:var(--accent);color:var(--on-accent);font-weight:700;box-shadow:0 0 18px var(--glow)}
+.spark{position:absolute;left:50%;top:50%;width:6px;height:6px;border-radius:50%;background:var(--accent);pointer-events:none;animation:spark .9s ease-out forwards}
+@keyframes spark{to{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0}}
+.timer{height:8px;background:var(--bg);border-radius:9px;overflow:hidden;margin:.6rem 0 1rem}
+.timer i{display:block;height:100%;background:var(--accent);transition:width .25s linear}
+.q{font:600 clamp(1.15rem,2.6vw,1.45rem)/1.4 var(--font-ui);letter-spacing:-.01em;margin:.2rem 0 1.1rem}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.opt{display:flex;gap:.6rem;text-align:left;font:500 1rem var(--font-ui);color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:14px;padding:.8rem 1rem;cursor:pointer;transition:.15s}
+.opt:hover:not(:disabled){border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.opt b{color:var(--accent);font-family:var(--font-mono)}
+.opt.ok{background:var(--ok);border-color:var(--ok);color:var(--on-ok)}.opt.bad{background:var(--err);border-color:var(--err);color:var(--on-err)}
+.opt.ok b,.opt.bad b{color:inherit}.opt.gone{opacity:.25;pointer-events:none}.opt.pick{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.lifelines{display:flex;gap:.6rem;margin-top:1.2rem;flex-wrap:wrap;align-items:center}
+.life{font:700 .9rem var(--font-ui);border:1.5px solid var(--accent);background:transparent;color:var(--accent);border-radius:99px;padding:.4rem .9rem;cursor:pointer}
+.life:disabled{opacity:.35;text-decoration:line-through;cursor:not-allowed}
+.bars{display:flex;gap:.8rem;align-items:flex-end;height:110px;margin-top:1rem}
+.bars div{flex:1;text-align:center;font-size:.85rem}
+.bars span{display:block;background:var(--accent);border-radius:8px 8px 0 0;transition:height .9s cubic-bezier(.2,.8,.2,1);height:0}
+.note{background:var(--bg);border-left:4px solid var(--accent);border-radius:10px;padding:.7rem 1rem;margin-top:1rem}
+.big{font:700 clamp(2.4rem,8vw,3.6rem)/1.1 var(--font-ui);letter-spacing:-.03em;color:var(--accent);margin:.3rem 0}
+.rev{border-left:5px solid var(--line);padding:.6rem 1rem;margin:.8rem 0;background:var(--bg);border-radius:0 12px 12px 0}
+.rev.ok{border-color:var(--ok)}.rev.bad{border-color:var(--err)}
+.spin{display:inline-block;width:1em;height:1em;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:r 1s linear infinite;vertical-align:-.15em}
+@keyframes r{to{transform:rotate(360deg)}}
+/* leaderboard, admin */
+.lb-list{list-style:none;margin:0;padding:0}
+.lb-list li{display:grid;grid-template-columns:2.5rem 2rem 1fr auto;align-items:center;gap:.5rem;padding:.7rem 1rem;border-top:1px solid var(--line)}
+.lb-list li:first-child{border-top:0}.lb-list .rk{font-weight:700;color:var(--muted)}.lb-list .vl{font:600 1rem var(--font-mono)}
+.lb-list li.me{background:var(--bg);border-radius:12px;box-shadow:inset 0 0 0 2px var(--accent)}
+.admin-tabs{display:flex;gap:.5rem;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:.35rem;margin:.75rem 0;overflow-x:auto}
+.admin-tab{flex:1;white-space:nowrap;font:600 .9rem var(--font-ui);color:var(--muted);background:none;border:0;border-radius:8px;padding:.55rem 1rem;cursor:pointer}
+.admin-tab.active{background:var(--accent);color:var(--on-accent)}
+.users-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.users-table th{text-align:left;padding:.5rem;color:var(--muted);border-bottom:1px solid var(--line)}
+.users-table td{padding:.55rem .5rem;border-bottom:1px solid var(--line)}
+.log{font:.8rem/1.45 var(--font-mono);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:.6rem .8rem;margin:.5rem 0}
+.log pre{margin:.3rem 0 0;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto}
+.setup code{background:var(--bg);padding:.1rem .35rem;border-radius:6px}
+@media(max-width:760px){.top{grid-template-columns:1fr auto;grid-template-areas:"b r" "n n"}.brand{grid-area:b}.hdr-right{grid-area:r}.tabs{grid-area:n}.tabs a{flex:1;text-align:center;padding:.45rem .6rem}
+  .game{grid-template-columns:1fr}.ladder{order:-1;flex-direction:row;overflow-x:auto}.ladder li{min-width:6.2rem}}
+@media(max-width:560px){.opts{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="view-auth" class="authwrap" hidden>
+  <div class="authcard">
+    <div class="auth-brand"><span aria-hidden="true">🎓</span> Crorepati Study Room</div>
+    <div id="setup" class="setup" hidden></div>
+    <div id="auth-form" style="display:grid;gap:.8rem">
+      <p class="muted">Sign in to play, study and appear on the leaderboard.</p>
+      <div class="seg" id="auth-tabs" role="group" aria-label="Sign in or create an account">
+        <button data-t="in" aria-pressed="true">Sign in</button><button data-t="up" aria-pressed="false">Create account</button>
+      </div>
+      <label>Username<input id="auth-user" autocomplete="username" maxlength="16" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+      <label>Password<input id="auth-pass" type="password" autocomplete="current-password" maxlength="72"></label>
+      <p id="auth-hint" class="muted small" hidden>3 to 16 letters, numbers or underscores. Password: 6 or more characters. There’s no email on file, so please remember your password.</p>
+      <p id="auth-msg" class="msg" role="alert"></p>
+      <button id="auth-go" class="btn primary">Sign in</button>
+    </div>
+  </div>
+</div>
+
+<header class="top">
+  <a class="brand" href="#home"><span aria-hidden="true">🎓</span> Crorepati Study Room</a>
+  <nav class="tabs" aria-label="Modes">
+    <a href="#kbc">KBC quiz</a><a href="#study">Study</a><a href="#leaderboard">Leaderboard</a><a href="#admin" id="admin-link" hidden>Admin</a>
+  </nav>
+  <div class="hdr-right">
+    <div id="who"></div>
+    <div class="acct-menu" id="acct-menu" role="menu" aria-label="Account menu" hidden></div>
+    <button id="theme-toggle" class="icon-btn" aria-label="Switch between light and dark theme">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.5a8.5 8.5 0 0 0 0 17z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+<main id="view"></main>
+
+<script>
+/* ============ Settings: paste your two Supabase values (Project Settings → API) ============ */
+const SUPABASE_URL = "";
+const SUPABASE_ANON_KEY = "";
+/* The anon key is meant to be public. It can't read or write any table; it can only call the
+   functions in schema.sql, and each of those checks your session token. The Gemini key is NOT here. */
+
+const CLASSES = ["5th Class","6th Class","7th Class","8th Class","9th Class","10th Class","11th Class","12th Class"];
+const LADDER = [1000,2000,3000,5000,10000,20000,40000,80000,160000,320000,640000,1250000,2500000,5000000,10000000];
+const SAFE = [4, 9];
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const rupee = n => "₹" + Number(n).toLocaleString("en-IN");
+const say = (sel, t, bad) => { const e = $(sel); if (e) { e.textContent = t; e.classList.toggle("bad", !!bad); } };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const classOptions = (list, sel) => list.map(c => `<option ${c === sel ? "selected" : ""}>${c}</option>`).join("");
+
+let sb = null;
+try { if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } }); } catch (e) { console.warn(e); }
+
+const ERR = { wrong:"Wrong username or password.", locked:"Too many wrong tries. Please wait 15 minutes.", taken:"That username is taken.",
+  bad_username:"Use 3 to 16 letters, numbers or underscores.", bad_password:"Use 6 to 72 characters.", forbidden:"Only the admin can do that.",
+  not_signed_in:"Please sign in again.", no_game:"That game has ended. Start a new one.", out_of_sync:"Out of sync. Start a new game.",
+  lifeline_used:"You already used that lifeline.", bad_key:"That doesn’t look like a Gemini key (it starts with AIza).", bad_model:"Pick a valid model name.",
+  admin_protected:"The admin account can’t be deleted." };
+async function rpc(name, args) {
+  if (!sb) return { ok: false, net: true, error: "Not connected to Supabase yet." };
+  const { data, error } = await sb.rpc(name, args);
+  if (error) return { ok: false, net: true, error: error.message };
+  if (data && data.ok === false) return { ok: false, code: data.error, error: ERR[data.error] || data.error };
+  return { ok: true, data };
+}
+async function generate(body) {
+  if (!sb) return { ok: false, error: "Not connected to Supabase yet." };
+  const { data, error } = await sb.functions.invoke("generate", { body: { tok: auth.token, ...body } });
+  if (error || !data) return { ok: false, error: "Couldn’t reach the quiz writer. Has the “generate” function been deployed?" };
+  if (data.ok === false) { if (data.code === "not_signed_in") sessionKicked(); return { ok: false, error: data.error }; }
+  return { ok: true, data };
+}
+
+/* ============ Accounts (username + password, one device at a time) ============ */
+const AUTH_KEY = "kb-session", authEl = $("#view-auth");
+let auth = null, authTab = "in";
+try { auth = JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch {}
+const saveSession = () => { try { localStorage.setItem(AUTH_KEY, JSON.stringify(auth)); } catch {} };
+const PALETTE = ["#9db894","#e8b85b","#e3a08f","#d8c3a0","#a9c7d8","#c3b5dc","#e5b0c0","#a8d5c2","#f0c3a0","#9fb0bd"];
+const hexOk = c => /^#[0-9a-f]{6}$/i.test(c || "");
+const nameColor = n => PALETTE[[...n].reduce((s, c) => s + c.charCodeAt(0), 0) % PALETTE.length];
+const inkOn = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)); return .299 * r + .587 * g + .114 * b > 150 ? "#2b2118" : "#fff"; };
+function avatar(u) { const bg = hexOk(u?.avatar_color || u?.color) ? (u.avatar_color || u.color) : nameColor(u.username); return { bg, ink: inkOn(bg), ch: ([...(u.avatar_letter || u.letter || u.username || "?")][0] || "?").toUpperCase() }; }
+const avHTML = (u, size = "") => { const a = avatar(u); return `<span class="av ${size}" style="background:${a.bg};color:${a.ink}">${esc(a.ch)}</span>`; };
+
+function applyAuthUI(keepMenu) {
+  authEl.hidden = !!auth;
+  $("#admin-link").hidden = !(auth && auth.is_admin);
+  if (auth) { const a = avatar(auth); $("#who").innerHTML = `<button id="acct-btn" class="av-btn" style="background:${a.bg};color:${a.ink}" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu for ${esc(auth.username)}">${esc(a.ch)}</button>`; }
+  else $("#who").innerHTML = "";
+  if (!(keepMenu && !$("#acct-menu").hidden)) closeAcct();
+}
+function setAuthTab(t) {
+  authTab = t;
+  $$("#auth-tabs button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.t === t)));
+  $("#auth-go").textContent = t === "in" ? "Sign in" : "Create account";
+  $("#auth-pass").autocomplete = t === "in" ? "current-password" : "new-password";
+  $("#auth-hint").hidden = t === "in";
+}
+function openAuth(msg, tab) { setAuthTab(tab || "in"); authEl.hidden = false; $("#auth-pass").value = ""; say("#auth-msg", msg || "", !!msg); $("#auth-user").focus(); }
+function clearSession() { auth = null; try { localStorage.removeItem(AUTH_KEY); } catch {} }
+function sessionKicked() { if (!auth) return; clearSession(); applyAuthUI(); route(); openAuth("You were signed out because this account was signed in on another device."); }
+function signOut() { const tok = auth && auth.token; clearSession(); applyAuthUI(); route(); openAuth(); if (tok) rpc("logout", { p_tok: tok }); }
+async function submitAuth() {
+  const u = $("#auth-user").value.trim(), p = $("#auth-pass").value;
+  if (!u || !p) return say("#auth-msg", "Enter a username and password.", true);
+  $("#auth-go").disabled = true; say("#auth-msg", authTab === "in" ? "Signing in…" : "Creating your account…");
+  const r = await rpc(authTab === "in" ? "login" : "signup", { p_user: u, p_pw: p });
+  $("#auth-go").disabled = false;
+  if (!r.ok) return say("#auth-msg", r.error, true);
+  auth = { token: r.data.token, username: r.data.username, is_admin: !!r.data.is_admin, avatar_letter: r.data.avatar_letter, avatar_color: r.data.avatar_color };
+  saveSession(); say("#auth-msg", ""); $("#auth-pass").value = ""; applyAuthUI(); route();
+}
+async function verifySession() {
+  if (!auth) return;
+  const r = await rpc("check_session", { p_tok: auth.token });
+  if (r.net) return;
+  if (!r.ok) return sessionKicked();
+  const next = { ...auth, username: r.data.username, is_admin: r.data.is_admin, avatar_letter: r.data.avatar_letter, avatar_color: r.data.avatar_color };
+  if (JSON.stringify(next) !== JSON.stringify(auth)) { const changed = next.is_admin !== auth.is_admin; auth = next; saveSession(); applyAuthUI(true); if (changed) route(); }
+}
+const acct = $("#acct-menu");
+function closeAcct() { acct.hidden = true; const b = $("#acct-btn"); if (b) b.setAttribute("aria-expanded", "false"); }
+function openAcct(view = "main") {
+  const head = `<div class="menu-head">${avHTML(auth, "lg")}<div><strong>${esc(auth.username)}</strong>${auth.is_admin ? ' <span class="badge">admin</span>' : ""}</div></div>`;
+  acct.innerHTML = head + (view === "pw"
+    ? `<label class="menu-field">Current password<input id="pw-old" type="password" autocomplete="current-password" maxlength="72"></label>
+       <label class="menu-field">New password<input id="pw-new" type="password" autocomplete="new-password" maxlength="72"></label>
+       <div class="row" style="margin-top:.5rem"><button class="btn primary small" data-act="pw-save">Save</button><button class="btn small" data-act="main">Back</button></div><p id="acct-msg" class="msg"></p>`
+    : `<div class="menu-list"><button class="menu-item" data-act="pw">Change password</button><button class="menu-item danger" data-act="signout">Sign out</button></div><p id="acct-msg" class="msg"></p>`);
+  acct.hidden = false; const b = $("#acct-btn"); if (b) b.setAttribute("aria-expanded", "true");
+}
+acct.addEventListener("click", async e => {
+  const b = e.target.closest("[data-act]"); if (!b) return; const act = b.dataset.act;
+  if (act === "signout") { closeAcct(); signOut(); }
+  else if (act === "pw" || act === "main") openAcct(act);
+  else if (act === "pw-save") {
+    const r = await rpc("change_password", { p_tok: auth.token, p_old: $("#pw-old").value, p_new: $("#pw-new").value });
+    if (!r.ok && r.code === "not_signed_in") return sessionKicked();
+    say("#acct-msg", r.ok ? "Password changed." : (r.code === "wrong" ? "Current password is wrong." : r.error), !r.ok);
+  }
+});
+document.addEventListener("click", e => {
+  if (e.target.closest("#acct-btn")) { acct.hidden ? openAcct() : closeAcct(); }
+  else if (!acct.hidden && !e.target.closest("#acct-menu")) closeAcct();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeAcct(); });
+
+/* ============ Theme + router ============ */
+$("#theme-toggle").onclick = () => { const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = t; try { localStorage.setItem("kb-theme", t); } catch {} };
+const ROUTES = { home: renderHome, kbc: renderKbc, study: renderStudy, leaderboard: renderLb, admin: renderAdmin };
+let tick = null; const stopTimer = () => clearInterval(tick);
+function route() {
+  let n = (location.hash || "#home").slice(1);
+  if (!ROUTES[n] || (n === "admin" && !(auth && auth.is_admin))) n = "home";
+  stopTimer();
+  $$(".tabs a").forEach(a => { if (a.getAttribute("href") === "#" + n) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  if (auth) ROUTES[n](); else $("#view").innerHTML = "";
+}
+addEventListener("hashchange", route);
+
+function renderHome() {
+  $("#view").innerHTML = `<h1 class="home-title">What shall we play or study today?</h1><p class="home-sub">Welcome, ${esc(auth.username)}. Pick a mode and settle in.</p>
+  <div class="cards">
+    <a class="card" href="#kbc"><span class="card-emoji" aria-hidden="true">💰</span><h2>KBC quiz</h2><p>Climb 15 levels of Indian GK from ₹1,000 to ₹1 crore, with lifelines and safe havens.</p></a>
+    <a class="card" href="#study"><span class="card-emoji" aria-hidden="true">📖</span><h2>Study mode</h2><p>Upload a PDF or text notes and get ten questions with explanations.</p></a>
+    <a class="card" href="#leaderboard"><span class="card-emoji" aria-hidden="true">🏆</span><h2>Leaderboard</h2><p>See the best scores for every class. Scores are checked on the server.</p></a>
+  </div>`;
+}
+
+/* ============ KBC quiz ============ */
+let G = null;
+const limitFor = i => i < 5 ? 30 : i < 10 ? 45 : 60;
+function renderKbc() {
+  G = null;
+  let cls = "5th Class"; try { cls = localStorage.getItem("kb-cls") || cls; } catch {}
+  $("#view").innerHTML = `<section class="panel"><h1>The hot seat is open</h1>
+    <p class="muted">Fifteen questions that climb from easy to tough. Safe havens at Level 5 (${rupee(10000)}) and Level 10 (${rupee(320000)}). You get 30 seconds at first, then 45 and 60.</p>
+    <div class="row" style="margin-top:1rem"><label for="cls" class="muted">Level</label><select id="cls">${classOptions([...CLASSES, "General GK"], cls)}</select><button class="btn primary" id="go">Play now</button></div>
+    <p id="msg" class="msg" role="status"></p></section>`;
+  $("#go").onclick = startKbc;
+}
+async function startKbc() {
+  const cls = $("#cls").value; try { localStorage.setItem("kb-cls", cls); } catch {}
+  $("#go").disabled = true; $("#msg").innerHTML = '<span class="spin"></span> Writing your questions…'; $("#msg").className = "msg";
+  const r = await generate({ kind: "kbc", cls });
+  if (!r.ok) { say("#msg", r.error, true); $("#go").disabled = false; return; }
+  G = { gid: r.data.gid, qs: r.data.questions, i: 0, hidden: [], life: { ff: 1, poll: 1, ph: 1 }, extra: "", cls, busy: false };
+  showQ();
+}
+function showQ() { G.t0 = Date.now(); drawQ(); }
+function drawQ() {
+  const q = G.qs[G.i];
+  $("#view").innerHTML = `<div class="game"><section class="panel"><div class="row" style="justify-content:space-between"><b>Question ${G.i + 1} of 15 · ${rupee(LADDER[G.i])}</b><span id="tl" class="muted"></span></div>
+    <div class="timer" aria-hidden="true"><i id="tb" style="width:100%"></i></div><p class="q">${esc(q.q)}</p>
+    <div class="opts">${q.options.map((o, k) => `<button class="opt ${G.hidden.includes(k) ? "gone" : ""}" data-k="${k}"><b>${"ABCD"[k]}</b><span>${esc(o)}</span></button>`).join("")}</div>
+    <div class="lifelines"><button class="life" data-l="ff" ${G.life.ff ? "" : "disabled"}>50:50</button><button class="life" data-l="poll" ${G.life.poll ? "" : "disabled"}>Audience poll</button><button class="life" data-l="ph" ${G.life.ph ? "" : "disabled"}>Phone a friend</button>
+      <button class="btn small" id="quit" style="margin-left:auto">Take ${rupee(G.i ? LADDER[G.i - 1] : 0)} and leave</button></div>
+    <p id="lmsg" class="msg" role="status"></p><div id="extra" aria-live="polite">${G.extra}</div></section>
+    <ol class="ladder" aria-label="Prize ladder">${LADDER.map((p, k) => `<li class="${SAFE.includes(k) ? "safe" : ""} ${k < G.i ? "done" : ""} ${k === G.i ? "now" : ""}"><span>${k + 1}</span><span>${rupee(p)}</span></li>`).join("")}</ol></div>`;
+  $$(".opt").forEach(b => b.onclick = () => answer(+b.dataset.k));
+  $$(".life").forEach(b => b.onclick = () => life(b.dataset.l));
+  $("#quit").onclick = quitKbc;
+  const now = $(".ladder .now"); if (now) now.scrollIntoView({ block: "nearest", inline: "center" });
+  startTimer();
+}
+function startTimer() {
+  stopTimer(); const lim = limitFor(G.i);
+  tick = setInterval(() => {
+    const tb = $("#tb"); if (!tb) return stopTimer();
+    const left = lim - (Date.now() - G.t0) / 1000;
+    tb.style.width = Math.max(0, left / lim * 100) + "%"; $("#tl").textContent = Math.ceil(Math.max(left, 0)) + "s";
+    if (left <= 0) { stopTimer(); answer(-1); }
+  }, 250);
+}
+function sparks(el) { if (!el) return; for (let i = 0; i < 14; i++) { const s = document.createElement("i"); s.className = "spark"; s.style.setProperty("--dx", (Math.random() * 120 - 60) + "px"); s.style.setProperty("--dy", (Math.random() * 60 - 30) + "px"); el.appendChild(s); setTimeout(() => s.remove(), 900); } }
+async function answer(k) {
+  if (G.busy) return; G.busy = true; stopTimer();
+  $$(".opt").forEach(o => o.disabled = true); if (k >= 0) $$(".opt")[k].classList.add("pick");
+  const r = await rpc("kbc_answer", { p_tok: auth.token, p_gid: G.gid, p_lvl: G.i, p_choice: k });
+  if (!r.ok) { if (r.code === "not_signed_in") return sessionKicked(); $("#extra").innerHTML = `<p class="msg bad">${esc(r.error)} <a href="#kbc">Start a new game</a></p>`; return; }
+  const d = r.data, opts = $$(".opt");
+  opts.forEach(o => o.classList.remove("pick")); opts[d.correct_index].classList.add("ok"); if (k >= 0 && k !== d.correct_index) opts[k].classList.add("bad");
+  if (d.correct) sparks($(".ladder .now"));
+  await sleep(1500);
+  if (d.correct && !d.finished) { G.i++; G.hidden = []; G.extra = ""; G.busy = false; showQ(); }
+  else if (d.correct) endKbc(d.score, "Crorepati! You won");
+  else { $("#extra").innerHTML = `<div class="note">${esc(d.explanation)}</div>`; await sleep(2600); endKbc(d.score, d.timeout ? "Time’s up. You take home" : "Wrong answer. You take home"); }
+}
+async function life(kind) {
+  if (G.busy || !G.life[kind]) return; G.busy = true;
+  const r = await rpc("kbc_lifeline", { p_tok: auth.token, p_gid: G.gid, p_kind: kind, p_lvl: G.i });
+  G.busy = false;
+  if (!r.ok) { if (r.code === "not_signed_in") return sessionKicked(); return say("#lmsg", r.error, true); }
+  G.life[kind] = 0; const d = r.data;
+  if (kind === "ff") G.hidden = d.hidden;
+  if (kind === "poll") G.extra = `<div class="bars" role="img" aria-label="Audience poll results">${d.pct.map((p, k) => `<div>${p}%<span data-h="${p}"></span>${"ABCD"[k]}</div>`).join("")}</div>`;
+  if (kind === "ph") G.extra = `<div class="note"><b>Your friend says:</b> “Hmm, let me think… ${esc(d.text)} I’m about ${d.sure}% sure it’s <b>${d.letter}</b>.”</div>`;
+  drawQ();
+  requestAnimationFrame(() => requestAnimationFrame(() => $$(".bars span").forEach(s => s.style.height = s.dataset.h * .8 + "px")));
+}
+async function quitKbc() {
+  if (G.busy) return; G.busy = true; stopTimer();
+  const r = await rpc("kbc_quit", { p_tok: auth.token, p_gid: G.gid });
+  if (!r.ok) { if (r.code === "not_signed_in") return sessionKicked(); G.busy = false; return say("#lmsg", r.error, true); }
+  endKbc(r.data.score, "You walked away with");
+}
+function endKbc(amount, title) {
+  stopTimer(); const cls = G.cls, reached = G.i + 1; G = null;
+  $("#view").innerHTML = `<section class="panel" style="text-align:center"><h1>${esc(title)}</h1><p class="big">${rupee(amount)}</p>
+    <p class="muted">You reached question ${reached} in ${esc(cls)}.${amount > 0 ? " Your score was recorded by the server." : ""}</p>
+    <div class="row" style="justify-content:center;margin-top:1rem"><button class="btn primary" id="again">Play again</button><a class="btn" href="#leaderboard" style="text-decoration:none">See leaderboard</a></div></section>`;
+  $("#again").onclick = renderKbc;
+}
+
+/* ============ Study mode ============ */
+let S = null;
+function renderStudy() {
+  S = null;
+  $("#view").innerHTML = `<section class="panel"><h1>Turn your notes into a quiz</h1><p class="muted">Upload a PDF or text file. Ten questions are written from your material only, and the answers are checked on the server.</p>
+    <div class="row" style="margin-top:1rem"><input type="file" id="file" accept=".pdf,.txt,application/pdf,text/plain" aria-label="Upload a PDF or text file">
+    <label for="scls" class="muted">Level</label><select id="scls">${classOptions(CLASSES, "10th Class")}</select><button class="btn primary" id="mk">Make quiz</button></div><p id="msg" class="msg" role="status"></p></section>`;
+  $("#mk").onclick = makeStudy;
+}
+async function extractText(f) {
+  if (/\.txt$/i.test(f.name) || f.type === "text/plain") return f.text();
+  if (!window.pdfjsLib) throw new Error("The PDF reader failed to load. Check your connection and refresh.");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise; let out = "";
+  for (let p = 1; p <= pdf.numPages && out.length < 40000; p++) out += (await (await pdf.getPage(p)).getTextContent()).items.map(i => i.str).join(" ") + "\n";
+  return out;
+}
+async function makeStudy() {
+  const f = $("#file").files[0]; if (!f) return say("#msg", "Choose a PDF or .txt file first.", true);
+  if (f.size > 15 * 1024 * 1024) return say("#msg", "That file is over 15 MB. Try a smaller one.", true);
+  const cls = $("#scls").value; $("#mk").disabled = true; $("#msg").className = "msg"; $("#msg").innerHTML = '<span class="spin"></span> Reading your file…';
+  try {
+    const text = (await extractText(f)).replace(/\s+/g, " ").trim();
+    if (text.length < 200) throw new Error("Not enough readable text. Scanned PDFs need OCR first.");
+    $("#msg").innerHTML = '<span class="spin"></span> Writing questions…';
+    const r = await generate({ kind: "study", cls, text: text.slice(0, 12000) });
+    if (!r.ok) throw new Error(r.error);
+    S = { gid: r.data.gid, qs: r.data.questions, pick: Array(10).fill(-1), cls }; drawStudy();
+  } catch (e) { say("#msg", e.message, true); $("#mk").disabled = false; }
+}
+function drawStudy() {
+  $("#view").innerHTML = `<section class="panel"><h2>Study quiz · ${esc(S.cls)}</h2>${S.qs.map((q, i) => `<div style="margin:1.2rem 0"><p class="q">${i + 1}. ${esc(q.q)}</p><div class="opts">${q.options.map((o, k) => `<button class="opt" data-q="${i}" data-k="${k}" aria-pressed="false"><b>${"ABCD"[k]}</b><span>${esc(o)}</span></button>`).join("")}</div></div>`).join("")}
+    <button class="btn primary" id="sub">Check answers</button><p id="msg" class="msg" role="status"></p></section>`;
+  $$(".opt").forEach(b => b.onclick = () => { const i = +b.dataset.q; S.pick[i] = +b.dataset.k; $$(`[data-q="${i}"]`).forEach(o => { o.classList.toggle("pick", o === b); o.setAttribute("aria-pressed", o === b); }); });
+  $("#sub").onclick = async () => {
+    const un = S.pick.filter(p => p < 0).length; if (un && !confirm(`${un} question(s) unanswered. Check anyway?`)) return;
+    $("#sub").disabled = true;
+    const r = await rpc("study_submit", { p_tok: auth.token, p_gid: S.gid, p_answers: S.pick });
+    if (!r.ok) { if (r.code === "not_signed_in") return sessionKicked(); $("#sub").disabled = false; return say("#msg", r.error, true); }
+    const d = r.data;
+    $("#view").innerHTML = `<section class="panel"><h2>You scored ${d.score} out of ${S.qs.length}</h2>${S.qs.map((q, i) => { const ok = S.pick[i] === d.review[i].correct_index;
+      return `<div class="rev ${ok ? "ok" : "bad"}"><b>${i + 1}. ${esc(q.q)}</b><br>Your answer: ${S.pick[i] < 0 ? "none" : esc(q.options[S.pick[i]])}${ok ? " ✓" : ""}<br>${ok ? "" : `Correct: <b>${esc(q.options[d.review[i].correct_index])}</b><br>`}<span class="muted">${esc(d.review[i].explanation)}</span></div>`; }).join("")}
+      <button class="btn primary" id="again">Try another file</button></section>`;
+    $("#again").onclick = renderStudy;
+  };
+}
+
+/* ============ Leaderboard ============ */
+async function renderLb() {
+  let cls = ""; try { cls = localStorage.getItem("kb-lbcls") || ""; } catch {}
+  $("#view").innerHTML = `<section class="panel"><h1>Leaderboard</h1><div class="row"><label for="lbc" class="muted">Level</label>
+    <select id="lbc"><option value="">All levels</option>${[...CLASSES, "General GK"].map(c => `<option ${c === cls ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+    <p id="lbmsg" class="msg" role="status"></p><ul id="lb" class="lb-list"></ul></section>`;
+  const load = async () => {
+    const c = $("#lbc").value; try { localStorage.setItem("kb-lbcls", c); } catch {}
+    say("#lbmsg", "Loading…");
+    const r = await rpc("leaderboard", { p_cls: c || null, p_lim: 20 }); if (!$("#lb")) return;
+    if (!r.ok) { $("#lb").innerHTML = ""; return say("#lbmsg", r.error, true); }
+    say("#lbmsg", r.data.length ? "Best score per player. Scores come from the server, so they can’t be edited." : "No scores yet. Be the first.");
+    const medal = ["🥇", "🥈", "🥉"];
+    $("#lb").innerHTML = r.data.map(x => `<li class="${x.username === auth.username ? "me" : ""}"><span class="rk">${medal[x.rank - 1] || x.rank}</span>${avHTML(x)}<span>${esc(x.username)} <span class="muted small">${esc(x.cls)} · Q${x.reached}</span></span><span class="vl">${rupee(x.score)}</span></li>`).join("");
+  };
+  $("#lbc").onchange = load; load();
+}
+
+/* ============ Admin console (admin account only) ============ */
+let admTab = "api";
+function renderAdmin() {
+  $("#view").innerHTML = `<section class="panel"><h1>Admin console</h1><p class="muted">Everything here is checked on the server. Only the admin account can read or change it.</p>
+    <div class="admin-tabs">${[["api", "API key and limits"], ["logs", "Request log"], ["users", "Users"]].map(([k, l]) => `<button class="admin-tab ${k === admTab ? "active" : ""}" data-tab="${k}">${l}</button>`).join("")}</div><div id="adm"></div></section>`;
+  $$(".admin-tab").forEach(b => b.onclick = () => { admTab = b.dataset.tab; renderAdmin(); });
+  ({ api: admApi, logs: admLogs, users: admUsers })[admTab]();
+}
+const admFail = r => { if (r.code === "not_signed_in") sessionKicked(); else say("#amsg", r.error, true); };
+async function admApi() {
+  const r = await rpc("admin_get_settings", { p_tok: auth.token });
+  if (!r.ok) { $("#adm").innerHTML = '<p id="amsg" class="msg bad"></p>'; return admFail(r); }
+  const s = r.data;
+  $("#adm").innerHTML = `<p class="${s.has_key ? "" : "msg bad"}">${s.has_key ? `The master key is saved (ends in <code>${esc(s.hint)}</code>). It stays on the server and is never sent to browsers.` : "No master key yet. Quizzes can’t be written until you add one."}</p>
+    <label class="field">Gemini API key<input id="a-key" type="password" autocomplete="off" placeholder="${s.has_key ? "Leave empty to keep the saved key" : "AIza…"}"></label>
+    <label class="field">Model<select id="a-model">${["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite"].map(m => `<option ${m === s.model ? "selected" : ""}>${m}</option>`).join("")}</select></label>
+    <label class="field">New quizzes per user, per hour<input id="a-hr" type="number" min="1" value="${s.hourly_cap}"></label>
+    <label class="field">New quizzes per day, all users<input id="a-day" type="number" min="10" value="${s.daily_cap}"></label>
+    <label class="field">Question sets kept per level before reusing<input id="a-sets" type="number" min="1" max="50" value="${s.cache_sets}"></label>
+    <p class="muted small">Gemini calls in the last 24 hours: ${s.used_today} of ${s.daily_cap}. Cached quizzes don’t count.</p>
+    <div class="row"><button class="btn primary" id="a-save">Save settings</button><button class="btn danger" id="a-rm" ${s.has_key ? "" : "disabled"}>Remove key</button><button class="btn" id="a-cache">Clear quiz cache</button></div><p id="amsg" class="msg" role="status"></p>`;
+  $("#a-save").onclick = async () => {
+    const k = $("#a-key").value.trim();
+    if (k && !/^AIza[0-9A-Za-z_-]{35}$/.test(k)) return say("#amsg", ERR.bad_key, true);
+    const x = await rpc("admin_save_settings", { p_tok: auth.token, p_key: k || null, p_model: $("#a-model").value, p_daily: +$("#a-day").value, p_hourly: +$("#a-hr").value, p_sets: +$("#a-sets").value });
+    if (!x.ok) return admFail(x); admApi().then(() => say("#amsg", "Saved."));
+  };
+  $("#a-rm").onclick = async () => { if (!confirm("Remove the master key? Nobody can start a new quiz until you add one.")) return; const x = await rpc("admin_remove_key", { p_tok: auth.token }); x.ok ? admApi() : admFail(x); };
+  $("#a-cache").onclick = async () => { const x = await rpc("admin_clear_cache", { p_tok: auth.token }); x.ok ? say("#amsg", "Quiz cache cleared.") : admFail(x); };
+}
+async function admLogs() {
+  $("#adm").innerHTML = '<div class="row"><button class="btn small" id="l-ref">Refresh</button></div><p id="amsg" class="msg" role="status"></p><div id="logs"></div>';
+  $("#l-ref").onclick = admLogs;
+  const r = await rpc("admin_logs", { p_tok: auth.token, p_lim: 60 }); if (!r.ok) return admFail(r);
+  $("#logs").innerHTML = r.data.length ? r.data.map(l => `<div class="log"><b style="color:${l.error ? "var(--err)" : "inherit"}">${new Date(l.created_at).toLocaleTimeString()} · ${esc(l.username || "?")} · ${esc(l.kind)} ${esc(l.class_level)}</b>
+    <div>${l.cache_hit ? "served from cache" : `HTTP ${l.status ?? "–"} · ${l.ms ?? "–"} ms · ~${l.tokens_in ?? 0} tokens in, ~${l.tokens_out ?? 0} out`}${l.error ? " · " + esc(l.error) : ""}</div>
+    <details><summary>Request</summary><pre>${esc(l.request || "")}</pre></details><details><summary>Raw response</summary><pre>${esc(l.response || "")}</pre></details></div>`).join("") : '<p class="muted">No requests yet. Start a quiz and they will appear here.</p>';
+}
+async function admUsers() {
+  $("#adm").innerHTML = '<p id="amsg" class="msg" role="status"></p><div style="overflow-x:auto"><table class="users-table"><thead><tr><th>Username</th><th>Role</th><th>Games</th><th>Joined</th><th></th></tr></thead><tbody id="ul"></tbody></table></div>';
+  const r = await rpc("admin_users", { p_tok: auth.token }); if (!r.ok) return admFail(r);
+  $("#ul").innerHTML = r.data.map(u => `<tr><td>${esc(u.username)}</td><td>${u.is_admin ? "Admin" : "Player"}</td><td>${u.games}</td><td>${new Date(u.created_at).toLocaleDateString()}</td><td>${u.is_admin ? "" : `<button class="btn small danger" data-del="${esc(u.username)}">Delete</button>`}</td></tr>`).join("");
+  $$("[data-del]").forEach(b => b.onclick = async () => { if (!confirm(`Delete ${b.dataset.del} and all their scores?`)) return; const x = await rpc("admin_delete_user", { p_tok: auth.token, p_user: b.dataset.del }); x.ok ? admUsers() : admFail(x); });
+}
+
+/* ============ Start-up ============ */
+$("#auth-tabs").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (b) { setAuthTab(b.dataset.t); say("#auth-msg", ""); } });
+$("#auth-go").addEventListener("click", submitAuth);
+$("#auth-user").addEventListener("keydown", e => { if (e.key === "Enter") $("#auth-pass").focus(); });
+$("#auth-pass").addEventListener("keydown", e => { if (e.key === "Enter") submitAuth(); });
+if (!sb) {
+  $("#auth-form").hidden = true; $("#setup").hidden = false;
+  $("#setup").innerHTML = `<p><b>One step left.</b> Open <code>index.html</code> and paste your Supabase Project URL and anon key into the two settings at the top of the script, then reload. See the setup steps in the README.</p>`;
+  authEl.hidden = false;
+} else {
+  applyAuthUI(); route(); if (!auth) openAuth(); else verifySession();
+  setInterval(verifySession, 30000);
+  addEventListener("focus", verifySession);
+}
+</script>
+</body>
+</html>
