@@ -1,0 +1,128 @@
+# WebKbc: project history and hand-over guide
+
+Purpose of this file: so the project can be continued in a new chat, with a different AI, or by another developer, without losing anything. Keep it updated after each change (see the last section).
+
+> Never write passwords or API keys in this file. The Supabase URL and anon key are public by design and live in `public/index.html`.
+
+## 1. What the project is
+
+**WebKbc** is a KBC-style quiz website with a Study Mode, built for an Indian school audience (classes 5 to 12 plus General GK).
+
+- Hosting: Cloudflare Pages, deployed from the `public/` folder of a private GitHub repo.
+- Backend: Supabase (Postgres, SQL functions, and one Edge Function named `generate`).
+- Question writer: Google Gemini through the Edge Function, using ONE master key that the admin stores in the database.
+- Front end: one HTML file with no build step (`public/index.html`).
+
+## 2. Current architecture (the important decisions)
+
+| Decision | Why |
+|---|---|
+| One master Gemini key, stored in `app_settings`, read only by the Edge Function | Players never see or need a key. A key in browser code would leak. |
+| Questions with answers are stored in `game_sessions`; the browser gets text and options only | Players can't read answers from the page, so scores can't be faked. |
+| Every table is locked (RLS on, no policies, access revoked). All access goes through `SECURITY DEFINER` SQL functions that check a session token | The public anon key can't read or write anything directly. |
+| The server checks answer order, the timer (+4 s grace), lifelines used once, winnings, and writes the leaderboard row | Anti-cheat. The client is never trusted. |
+| Custom username and password accounts (not Supabase Auth), copied from the owner's other website | Owner's choice. No email needed. Passwords hashed with bcrypt via pgcrypto. |
+| One device at a time; 5 wrong passwords locks 15 minutes | Mirrors the owner's other site. |
+| Only KBC scores go on the leaderboard | Study quizzes can be made easy by uploading trivial notes, so ranking them would be unfair. |
+| Quiz cache (`cached_quizzes`), N sets per level then reuse | Saves the Gemini free-tier quota. Admin can change N or clear it. |
+| Model name is a free-text admin setting | Google retires models; no code change needed next time. |
+| Read-aloud uses the browser's Web Speech API, with all options set by the admin | Free, no key, no quota. Voices vary by device. |
+| Extra clock seconds for players who listen (admin-set, capped on the server) | Reading aloud takes time. The client claims `p_extra`; the server caps it at the admin's value and ignores it if read-aloud is off. |
+
+## 3. Files
+
+```
+public/index.html                        Entire site. Settings at the top: SUPABASE_URL, SUPABASE_ANON_KEY.
+schema.sql                               Complete database for a NEW project (includes everything in patches/).
+patches/01-profile-update.sql            update_profile, rename_user, delete_account.
+patches/02-speech-and-timer.sql          app_settings.tts, get_config, admin_save_tts, kbc_answer with p_extra.
+supabase/functions/generate/index.ts     Edge Function: gate, cache, Gemini call, log, create_game.
+README.md                                Public-facing setup and usage.
+PROJECT_HISTORY.md                       This file.
+```
+
+### Database objects (all in schema `public`)
+- **Tables:** `app_users`, `app_sessions`, `app_settings` (one row, id = 1), `game_sessions`, `leaderboards`, `cached_quizzes`, `api_logs`.
+- **Callable by the browser (anon key):** `signup`, `login`, `check_session`, `logout`, `change_password`, `update_profile`, `rename_user`, `delete_account`, `leaderboard`, `kbc_answer`, `kbc_quit`, `kbc_lifeline`, `study_submit`, `get_config`, and the admin set `admin_get_settings`, `admin_save_settings`, `admin_save_tts`, `admin_remove_key`, `admin_clear_cache`, `admin_logs`, `admin_users`, `admin_delete_user`.
+- **Service role only (the Edge Function):** `gate`, `create_game`.
+- **Internal helpers:** `_uid`, `_is_admin`, `_ladder`, `_safe`, `_finish`, `_user_json`.
+- **Parameters** of all browser-callable functions are prefixed `p_` (the client passes them by name).
+
+### Game rules (enforced in SQL)
+- 15 questions. Prizes: 1,000 / 2,000 / 3,000 / 5,000 / 10,000 / 20,000 / 40,000 / 80,000 / 1,60,000 / 3,20,000 / 6,40,000 / 12,50,000 / 25,00,000 / 50,00,000 / 1,00,00,000.
+- Safe havens: after question 5 (₹10,000) and question 10 (₹3,20,000). A wrong or late answer pays the last safe haven.
+- Time per question: 30 s (Q1 to 5), 45 s (Q6 to 10), 60 s (Q11 to 15), plus 4 s grace, plus read-aloud extra if claimed.
+- Starting a new game while one is active ends the old one at its safe haven. Refreshing mid-game does the same.
+
+## 4. Live deployment state (tick what applies to your project)
+
+- [ ] Supabase project created; `schema.sql` run (or v1 then patches)
+- [ ] Patch `01-profile-update.sql` applied
+- [ ] Patch `02-speech-and-timer.sql` applied
+- [ ] Edge Function `generate` deployed (latest `index.ts`); Verify JWT setting: ______
+- [ ] Admin password changed from the starting one
+- [ ] Gemini key saved in Admin, and the old key from the chat history revoked
+- [ ] Model name set in Admin (currently used: `gemini-3.1-flash-lite`; `gemini-3.8-flash` also valid in Nov 2026)
+- [ ] GitHub repo is **private**
+- [ ] Cloudflare Pages: build output directory `public`, auto-deploys from `main`
+
+## 5. History (oldest first)
+
+| Version | What happened |
+|---|---|
+| v1 | First build from the owner's brief: single HTML file, each user pasted their own Gemini key into a settings modal, KBC mode (15-level ladder, 50:50, audience poll, phone a friend), Study mode (pdf.js), passcode-protected console (`2468`), anonymous Supabase scores. |
+| v2 | Rebuilt for one master key and real anti-cheat. Added accounts, server-side scoring, Edge Function, admin console (key, limits, request log, users), classes 5th to 12th, and a UI based on the owner's other website (fonts, pill tabs, cards, avatar menu, sign-in card). Passcode console removed; replaced by an `admin` account. Tested against a real Postgres with attack scenarios (forged scores, replays, wrong owner, slow answers). |
+| v2.1 | Gemini now issues keys that start with `AQ.` as well as `AIza`. Key validation loosened in the browser and in SQL. |
+| v2.2 | Google retired `gemini-2.0-flash` (HTTP 404). The model became an editable admin text field; the Edge Function reports 404 clearly and stops retrying. |
+| v2.3 | Site renamed **WebKbc**. Owner's Supabase URL and anon key were put into `index.html`. |
+| v2.4 | Profile features: icon (letter or emoji), colour, username change, delete account (password required, admin protected). Fixed a bug where menu views closed themselves (click-outside check now uses `composedPath`). |
+| v2.5 | Read-aloud: question, then Option A and its text, Option B and so on, with the current option highlighted. Admin "Read aloud" tab (language, voice, speed, pitch, volume, pause, labels, auto-read, extra seconds, preview). `kbc_answer` gained `p_extra`. Added README and this history. Repo restructured into `public/`, `patches/`, `supabase/`. |
+
+## 6. Lessons learned (avoid repeating these)
+
+- **Never re-run `schema.sql` on a live database.** It drops and recreates some tables and would delete scores. Use a file from `patches/`.
+- Google changes model names and key formats. Check the request log before assuming code is wrong.
+- Supabase may reject the function call at the JWT check; turning Verify JWT off for `generate` is safe because the function validates the session token itself.
+- Browser caching causes "my fix didn't work" reports. Check with Ctrl+Shift+R or `view-source:`.
+- Copying text from collapsed sections (like the log's Request/Response panels) copies nothing; expand them first.
+- Changing a SQL function's parameter list creates an overload unless the old one is dropped first (this is why patch 02 drops the old `kbc_answer`).
+- iPhones may block automatic speech unless it follows a tap. The code "unlocks" speech on the Play button; the Read aloud button always works.
+
+## 7. Testing notes
+
+How it was verified (no live Supabase or Gemini was available to the builder):
+- SQL was loaded into a real Postgres (with a stand-in for `pgcrypto`) and attacked as the `anon` and `service_role` roles: direct table access, forged leaderboard rows, replayed and out-of-order answers, another user's game, slow answers, lifeline reuse, parameter abuse, lockout, single-device sessions.
+- The front end was run in headless Chromium against a stubbed Supabase client, and speech against a recording stub that captured the exact spoken order.
+- Not tested: real Gemini output quality, real device voices, Cloudflare deployment.
+
+## 8. Ideas not built yet
+
+- Admin password reset for players (there is no recovery today).
+- Resume an interrupted KBC game.
+- A personal history page (the data is in `game_sessions`).
+- Read the explanation aloud after answering.
+- Hindi-language questions (needs a prompt change and a Hindi voice).
+- Per-IP rate limiting in the Edge Function.
+- Shared quiz links or timed class competitions.
+
+## 9. How to continue with a new chat or a different AI
+
+1. Open a new chat and upload: `PROJECT_HISTORY.md`, `README.md`, `public/index.html`, `schema.sql`, `supabase/functions/generate/index.ts`, and the files in `patches/`.
+2. Paste this message:
+
+```
+I'm continuing an existing project called WebKbc. Please read PROJECT_HISTORY.md and README.md first,
+then the code files. Follow the decisions in section 2 (server-side scoring, locked tables, master Gemini
+key only in the database, all browser access through SECURITY DEFINER functions with p_ parameters).
+Rules: never ask me to re-run schema.sql on my live database; give me a new numbered file in patches/
+for any database change; keep my Supabase URL and anon key already set in public/index.html; never put
+secrets in the repo. When you finish a change, give me the updated files and the exact steps to apply them,
+and add a line to the history table in PROJECT_HISTORY.md.
+My request: <describe what you want>
+```
+
+3. Check that the AI reads the live state (section 4) and asks which patches you have applied if unsure.
+
+## 10. Keeping this file up to date
+
+After every change: add a row to the table in section 5, tick or add items in section 4, and add any new lesson to section 6. If you change the database, add a new `patches/NN-name.sql` and also fold the same change into `schema.sql` so new installs match.
