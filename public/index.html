@@ -165,8 +165,8 @@ select,input[type=text],input[type=password],input[type=number]{font:500 .95rem 
 
 <script>
 /* ============ Settings: paste your two Supabase values (Project Settings → API) ============ */
-const SUPABASE_URL = "https://ryxddswyvxnciqiwajqh.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5eGRkc3d5dnhuY2lxaXdhanFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwNTE5MDUsImV4cCI6MjEwOTYyNzkwNX0.2Lz_sorQEnOSdkcKmESHz9ZkcY9S4cFSCXtmJxhbTOA";
+const SUPABASE_URL = "";
+const SUPABASE_ANON_KEY = "";
 /* The anon key is meant to be public. It can't read or write any table; it can only call the
    functions in schema.sql, and each of those checks your session token. The Gemini key is NOT here. */
 
@@ -186,7 +186,7 @@ try { if (SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase) sb = window.supa
 const ERR = { wrong:"Wrong username or password.", locked:"Too many wrong tries. Please wait 15 minutes.", taken:"That username is taken.",
   bad_username:"Use 3 to 16 letters, numbers or underscores.", bad_password:"Use 6 to 72 characters.", forbidden:"Only the admin can do that.",
   not_signed_in:"Please sign in again.", no_game:"That game has ended. Start a new one.", out_of_sync:"Out of sync. Start a new game.",
-  lifeline_used:"You already used that lifeline.", bad_key:"That doesn’t look like a Gemini key (it starts with AIza).", bad_model:"Pick a valid model name.",
+  lifeline_used:"You already used that lifeline.", bad_key:"That doesn’t look like a Gemini key. Copy it again from Google AI Studio with no spaces.", bad_model:"Pick a valid model name.",
   admin_protected:"The admin account can’t be deleted." };
 async function rpc(name, args) {
   if (!sb) return { ok: false, net: true, error: "Not connected to Supabase yet." };
@@ -464,7 +464,7 @@ async function admApi() {
   if (!r.ok) { $("#adm").innerHTML = '<p id="amsg" class="msg bad"></p>'; return admFail(r); }
   const s = r.data;
   $("#adm").innerHTML = `<p class="${s.has_key ? "" : "msg bad"}">${s.has_key ? `The master key is saved (ends in <code>${esc(s.hint)}</code>). It stays on the server and is never sent to browsers.` : "No master key yet. Quizzes can’t be written until you add one."}</p>
-    <label class="field">Gemini API key<input id="a-key" type="password" autocomplete="off" placeholder="${s.has_key ? "Leave empty to keep the saved key" : "AIza…"}"></label>
+    <label class="field">Gemini API key<input id="a-key" type="password" autocomplete="off" placeholder="${s.has_key ? "Leave empty to keep the saved key" : "Paste your Gemini API key"}"></label>
     <label class="field">Model<select id="a-model">${["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite"].map(m => `<option ${m === s.model ? "selected" : ""}>${m}</option>`).join("")}</select></label>
     <label class="field">New quizzes per user, per hour<input id="a-hr" type="number" min="1" value="${s.hourly_cap}"></label>
     <label class="field">New quizzes per day, all users<input id="a-day" type="number" min="10" value="${s.daily_cap}"></label>
@@ -473,7 +473,7 @@ async function admApi() {
     <div class="row"><button class="btn primary" id="a-save">Save settings</button><button class="btn danger" id="a-rm" ${s.has_key ? "" : "disabled"}>Remove key</button><button class="btn" id="a-cache">Clear quiz cache</button></div><p id="amsg" class="msg" role="status"></p>`;
   $("#a-save").onclick = async () => {
     const k = $("#a-key").value.trim();
-    if (k && !/^AIza[0-9A-Za-z_-]{35}$/.test(k)) return say("#amsg", ERR.bad_key, true);
+    if (k && !/^[A-Za-z0-9._~-]{20,200}$/.test(k)) return say("#amsg", ERR.bad_key, true);
     const x = await rpc("admin_save_settings", { p_tok: auth.token, p_key: k || null, p_model: $("#a-model").value, p_daily: +$("#a-day").value, p_hourly: +$("#a-hr").value, p_sets: +$("#a-sets").value });
     if (!x.ok) return admFail(x); admApi().then(() => say("#amsg", "Saved."));
   };
