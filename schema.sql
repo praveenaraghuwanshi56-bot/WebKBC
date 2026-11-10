@@ -1,4 +1,4 @@
--- Crorepati Study Room: Supabase schema (v2)
+-- WebKbc: Supabase schema (v2)
 -- Run the whole file in Supabase Dashboard > SQL Editor.
 -- It replaces the v1 tables. Browsers never touch tables directly: every table is locked
 -- and all reads/writes go through the functions below, which check the session token.
@@ -33,10 +33,12 @@ create index if not exists app_sessions_user on public.app_sessions (user_id);
 create table if not exists public.app_settings (
   id int primary key check (id = 1),
   gemini_key text,
-  model text not null default 'gemini-2.0-flash',
+  model text not null default 'gemini-3.8-flash',
   daily_cap int not null default 1000,
   hourly_cap int not null default 12,
-  cache_sets int not null default 6
+  cache_sets int not null default 6,
+  tts jsonb not null default
+    '{"enabled":true,"auto":true,"lang":"en-IN","voice":"","rate":0.95,"pitch":1,"volume":1,"pause_ms":500,"labels":true,"announce":true,"extra_secs":12}'::jsonb
 );
 insert into public.app_settings (id) values (1) on conflict do nothing;
 
@@ -53,6 +55,7 @@ create table if not exists public.game_sessions (
   status text not null default 'active' check (status in ('active','finished')),
   score bigint not null default 0,
   reached int not null default 0,
+  ready boolean not null default false,
   q_started_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   finished_at timestamptz
@@ -236,9 +239,24 @@ begin
        from jsonb_array_elements(p_questions) with ordinality as e(v, ord)));
 end $$;
 
-create or replace function public.kbc_answer(p_tok text, p_gid uuid, p_lvl int, p_choice int) returns jsonb
+-- The question's clock starts when the player can SEE it, not when the previous answer was saved.
+-- (Locking an answer adds a 2-5 second suspense pause plus the reveal, which must not eat into the next question's time.)
+-- The browser calls kbc_ready when a question appears. It only counts once, and only within 15 s of the
+-- previous answer, so it cannot be used to stall for long. If it is never called, the older (stricter) start time applies.
+create or replace function public.kbc_ready(p_tok text, p_gid uuid, p_lvl int) returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
-declare uid uuid := _uid(p_tok); g game_sessions; q jsonb; ans int; lim int; timed_out boolean; ok boolean; sc bigint;
+declare uid uuid := _uid(p_tok);
+begin
+  if uid is null then return jsonb_build_object('ok', false, 'error', 'not_signed_in'); end if;
+  update game_sessions set q_started_at = now(), ready = true
+   where id = p_gid and user_id = uid and mode = 'kbc' and status = 'active'
+     and lvl = p_lvl and not ready and now() - q_started_at <= interval '15 seconds';
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function public.kbc_answer(p_tok text, p_gid uuid, p_lvl int, p_choice int, p_extra int default 0) returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare uid uuid := _uid(p_tok); g game_sessions; q jsonb; ans int; lim int; ex int; timed_out boolean; ok boolean; sc bigint;
 begin
   if uid is null then return jsonb_build_object('ok', false, 'error', 'not_signed_in'); end if;
   select * into g from game_sessions where id = p_gid and user_id = uid and mode = 'kbc' for update;
@@ -246,7 +264,10 @@ begin
   if p_lvl <> g.lvl then return jsonb_build_object('ok', false, 'error', 'out_of_sync'); end if;
   q := g.questions -> g.lvl; ans := (q->>'answer')::int;
   lim := case when g.lvl < 5 then 30 when g.lvl < 10 then 45 else 60 end;
-  timed_out := now() - g.q_started_at > make_interval(secs => lim + 4);
+  select case when coalesce((tts->>'enabled')::boolean, false)
+              then least(greatest(coalesce(p_extra, 0), 0), coalesce((tts->>'extra_secs')::int, 0)) else 0 end
+    into ex from app_settings where id = 1;
+  timed_out := now() - g.q_started_at > make_interval(secs => lim + 4 + coalesce(ex, 0));
   ok := not timed_out and p_choice = ans;
   if ok then
     if g.lvl = 14 then
@@ -254,7 +275,7 @@ begin
       perform _finish(g.id, sc, 15);
       return jsonb_build_object('ok', true, 'correct', true, 'finished', true, 'score', sc, 'correct_index', ans, 'explanation', q->>'explanation');
     end if;
-    update game_sessions set lvl = lvl + 1, hidden = '[]'::jsonb, q_started_at = now() where id = g.id;
+    update game_sessions set lvl = lvl + 1, hidden = '[]'::jsonb, q_started_at = now(), ready = false where id = g.id;
     return jsonb_build_object('ok', true, 'correct', true, 'finished', false, 'score', (_ladder())[g.lvl + 1], 'correct_index', ans, 'explanation', q->>'explanation');
   end if;
   sc := _safe(g.lvl);
@@ -368,7 +389,7 @@ create or replace function public.admin_save_settings(p_tok text, p_key text, p_
 language plpgsql security definer set search_path = public, pg_temp as $$
 begin
   if not _is_admin(p_tok) then return jsonb_build_object('ok', false, 'error', 'forbidden'); end if;
-  if coalesce(p_key, '') <> '' and p_key !~ '^AIza[0-9A-Za-z_-]{35}$' then return jsonb_build_object('ok', false, 'error', 'bad_key'); end if;
+  if coalesce(p_key, '') <> '' and p_key !~ '^[A-Za-z0-9._~-]{20,200}$' then return jsonb_build_object('ok', false, 'error', 'bad_key'); end if;
   if p_model !~ '^gemini-[a-z0-9.-]{3,40}$' then return jsonb_build_object('ok', false, 'error', 'bad_model'); end if;
   update app_settings set
     gemini_key = case when coalesce(p_key, '') = '' then gemini_key else p_key end,
@@ -427,12 +448,85 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 
+-- ---------- Profile ----------
+create or replace function public.update_profile(p_tok text, p_letter text, p_color text) returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare uid uuid := _uid(p_tok); r app_users; l text := nullif(trim(coalesce(p_letter, '')), ''); c text := nullif(coalesce(p_color, ''), '');
+begin
+  if uid is null then return jsonb_build_object('ok', false, 'error', 'not_signed_in'); end if;
+  if l is not null and (char_length(l) > 8 or l ~ '[[:space:][:cntrl:]<>&"'']') then return jsonb_build_object('ok', false, 'error', 'bad_icon'); end if;
+  if c is not null and c !~ '^#[0-9a-fA-F]{6}$' then return jsonb_build_object('ok', false, 'error', 'bad_color'); end if;
+  update app_users set avatar_letter = l, avatar_color = c where id = uid returning * into r;
+  return _user_json(r, p_tok);
+end $$;
+
+create or replace function public.rename_user(p_tok text, p_new text) returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare uid uuid := _uid(p_tok); r app_users; n text := trim(coalesce(p_new, ''));
+begin
+  if uid is null then return jsonb_build_object('ok', false, 'error', 'not_signed_in'); end if;
+  if n !~ '^[A-Za-z0-9_]{3,16}$' then return jsonb_build_object('ok', false, 'error', 'bad_username'); end if;
+  if exists (select 1 from app_users where lower(username) = lower(n) and id <> uid) then return jsonb_build_object('ok', false, 'error', 'taken'); end if;
+  update app_users set username = n where id = uid returning * into r;
+  return _user_json(r, p_tok);
+exception when unique_violation then
+  return jsonb_build_object('ok', false, 'error', 'taken');
+end $$;
+
+-- Deletes the account, its sessions, game history and leaderboard rows. Needs the password. The admin account can't be deleted.
+create or replace function public.delete_account(p_tok text, p_pw text) returns jsonb
+language plpgsql security definer set search_path = public, extensions, pg_temp as $$
+declare uid uuid := _uid(p_tok); r app_users;
+begin
+  if uid is null then return jsonb_build_object('ok', false, 'error', 'not_signed_in'); end if;
+  select * into r from app_users where id = uid;
+  if r.is_admin then return jsonb_build_object('ok', false, 'error', 'admin_protected'); end if;
+  if r.pw_hash <> crypt(coalesce(p_pw, ''), r.pw_hash) then return jsonb_build_object('ok', false, 'error', 'wrong'); end if;
+  delete from app_users where id = uid;
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- ---------- Speech settings ----------
+-- Public: the browser needs these to know how to read questions. Contains nothing secret.
+create or replace function public.get_config() returns jsonb
+language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_build_object('ok', true, 'tts', tts) from app_settings where id = 1
+$$;
+
+create or replace function public.admin_save_tts(p_tok text, p_cfg jsonb) returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare c jsonb := coalesce(p_cfg, '{}'::jsonb);
+begin
+  if not _is_admin(p_tok) then return jsonb_build_object('ok', false, 'error', 'forbidden'); end if;
+  if coalesce(c->>'lang', '') !~ '^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$' or char_length(coalesce(c->>'voice', '')) > 100
+     or coalesce(c->>'voice', '') ~ '[[:cntrl:]<>]' then
+    return jsonb_build_object('ok', false, 'error', 'bad_tts');
+  end if;
+  update app_settings set tts = jsonb_build_object(
+    'enabled', coalesce((c->>'enabled')::boolean, true),
+    'auto', coalesce((c->>'auto')::boolean, true),
+    'lang', c->>'lang',
+    'voice', coalesce(c->>'voice', ''),
+    'rate', greatest(0.5, least(1.6, coalesce((c->>'rate')::numeric, 0.95))),
+    'pitch', greatest(0.5, least(1.5, coalesce((c->>'pitch')::numeric, 1))),
+    'volume', greatest(0, least(1, coalesce((c->>'volume')::numeric, 1))),
+    'pause_ms', greatest(0, least(2000, coalesce((c->>'pause_ms')::int, 500))),
+    'labels', coalesce((c->>'labels')::boolean, true),
+    'announce', coalesce((c->>'announce')::boolean, true),
+    'extra_secs', greatest(0, least(30, coalesce((c->>'extra_secs')::int, 12)))
+  ) where id = 1;
+  return jsonb_build_object('ok', true);
+exception when others then
+  return jsonb_build_object('ok', false, 'error', 'bad_tts');
+end $$;
+
 -- ---------- Permissions ----------
 revoke execute on all functions in schema public from public, anon, authenticated;
 grant execute on function
   public.signup(text, text), public.login(text, text), public.check_session(text), public.logout(text),
   public.change_password(text, text, text), public.leaderboard(text, int),
-  public.kbc_answer(text, uuid, int, int), public.kbc_quit(text, uuid), public.kbc_lifeline(text, uuid, text, int),
+  public.update_profile(text, text, text), public.rename_user(text, text), public.delete_account(text, text),
+  public.kbc_answer(text, uuid, int, int, int), public.kbc_ready(text, uuid, int), public.get_config(), public.admin_save_tts(text, jsonb), public.kbc_quit(text, uuid), public.kbc_lifeline(text, uuid, text, int),
   public.study_submit(text, uuid, jsonb),
   public.admin_get_settings(text), public.admin_save_settings(text, text, text, int, int, int),
   public.admin_remove_key(text), public.admin_clear_cache(text), public.admin_logs(text, int),
