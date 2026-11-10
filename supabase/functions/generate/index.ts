@@ -117,7 +117,8 @@ Deno.serve(async (req) => {
         });
         status = res.status; raw = await res.text();
         if (!res.ok) {
-          err = status === 429 ? "Gemini free-tier limit reached" : (status === 400 || status === 403) ? "Gemini rejected the API key" : `Gemini error ${status}`;
+          err = status === 429 ? "Gemini free-tier limit reached" : (status === 400 || status === 403) ? "Gemini rejected the API key"
+            : status === 404 ? "Model not found or retired: change it in Admin" : `Gemini error ${status}`;
         } else {
           const j = JSON.parse(raw);
           tin = j.usageMetadata?.promptTokenCount ?? tin; tout = j.usageMetadata?.candidatesTokenCount ?? Math.ceil(raw.length / 4);
@@ -128,6 +129,7 @@ Deno.serve(async (req) => {
       } catch (e) { err = String((e as Error).message || e); }
       await log({ status, ms: Math.round(performance.now() - t0), tokens_in: tin, tokens_out: tout, error: err || null,
                   request: `[try ${attempt}] ${p}`.slice(0, 3000), response: raw.slice(0, 4000) });
+      if (err && status === 404) return fail("The quiz model is no longer available. Please tell the admin to update it.", "bad_model");
       if (err && (status === 429 || status === 400 || status === 403)) {
         return fail(status === 429 ? "The quiz writer is busy right now. Try again in a minute."
                                    : "The site's API key was rejected. Please tell the admin.", status === 429 ? "busy" : "bad_key");
