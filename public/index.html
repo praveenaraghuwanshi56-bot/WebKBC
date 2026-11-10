@@ -80,6 +80,11 @@ select,input[type=text],input[type=password],input[type=number]{font:500 .95rem 
 .menu-item{padding:.6rem .7rem;border:1px solid transparent;border-radius:12px;background:none;color:var(--text);font:600 .95rem var(--font-ui);text-align:left;cursor:pointer}
 .menu-item:hover{background:var(--bg)}.menu-item.danger{color:var(--err)}
 .menu-field{display:grid;gap:.25rem;margin:.4rem 0;color:var(--muted);font-size:.85rem}
+.swatches{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0 .7rem}
+.sw{width:1.7rem;height:1.7rem;padding:0;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line);cursor:pointer}
+.sw[aria-pressed=true]{box-shadow:0 0 0 3px var(--accent)}
+.sw.auto{width:auto;padding:0 .7rem;border-radius:99px;background:var(--bg);color:var(--text);font:600 .75rem var(--font-ui)}
+.menu-sep{border:0;border-top:1px solid var(--line);margin:.8rem 0}
 /* game */
 .game{display:grid;grid-template-columns:1fr 12.5rem;gap:1.2rem;align-items:start}
 .ladder{list-style:none;margin:0;padding:.6rem;display:flex;flex-direction:column-reverse;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:20px}
@@ -187,7 +192,7 @@ const ERR = { wrong:"Wrong username or password.", locked:"Too many wrong tries.
   bad_username:"Use 3 to 16 letters, numbers or underscores.", bad_password:"Use 6 to 72 characters.", forbidden:"Only the admin can do that.",
   not_signed_in:"Please sign in again.", no_game:"That game has ended. Start a new one.", out_of_sync:"Out of sync. Start a new game.",
   lifeline_used:"You already used that lifeline.", bad_key:"That doesn’t look like a Gemini key. Copy it again from Google AI Studio with no spaces.", bad_model:"Pick a valid model name.",
-  admin_protected:"The admin account can’t be deleted." };
+  admin_protected:"The admin account can’t be deleted.", bad_icon:"Use one letter or emoji, with no spaces.", bad_color:"Pick one of the colours." };
 async function rpc(name, args) {
   if (!sb) return { ok: false, net: true, error: "Not connected to Supabase yet." };
   const { data, error } = await sb.rpc(name, args);
@@ -253,28 +258,62 @@ async function verifySession() {
 }
 const acct = $("#acct-menu");
 function closeAcct() { acct.hidden = true; const b = $("#acct-btn"); if (b) b.setAttribute("aria-expanded", "false"); }
+let pf = null; // unsaved look while the profile view is open
+const firstChar = v => { v = (v || "").trim(); if (!v) return ""; try { return [...new Intl.Segmenter().segment(v)][0].segment; } catch { return [...v][0]; } };
 function openAcct(view = "main") {
-  const head = `<div class="menu-head">${avHTML(auth, "lg")}<div><strong>${esc(auth.username)}</strong>${auth.is_admin ? ' <span class="badge">admin</span>' : ""}</div></div>`;
-  acct.innerHTML = head + (view === "pw"
-    ? `<label class="menu-field">Current password<input id="pw-old" type="password" autocomplete="current-password" maxlength="72"></label>
+  const head = `<div class="menu-head"><span id="pf-av">${avHTML(auth, "lg")}</span><div><strong>${esc(auth.username)}</strong>${auth.is_admin ? ' <span class="badge">admin</span>' : ""}</div></div>`;
+  let body;
+  if (view === "pw") body = `<label class="menu-field">Current password<input id="pw-old" type="password" autocomplete="current-password" maxlength="72"></label>
        <label class="menu-field">New password<input id="pw-new" type="password" autocomplete="new-password" maxlength="72"></label>
-       <div class="row" style="margin-top:.5rem"><button class="btn primary small" data-act="pw-save">Save</button><button class="btn small" data-act="main">Back</button></div><p id="acct-msg" class="msg"></p>`
-    : `<div class="menu-list"><button class="menu-item" data-act="pw">Change password</button><button class="menu-item danger" data-act="signout">Sign out</button></div><p id="acct-msg" class="msg"></p>`);
+       <div class="row" style="margin-top:.5rem"><button class="btn primary small" data-act="pw-save">Save</button><button class="btn small" data-act="main">Back</button></div>`;
+  else if (view === "profile") {
+    if (!pf) pf = { letter: auth.avatar_letter || "", color: hexOk(auth.avatar_color) ? auth.avatar_color : "" };
+    body = `<label class="menu-field">Icon: one letter or emoji<input id="pf-letter" type="text" maxlength="8" value="${esc(pf.letter)}" placeholder="${esc(([...auth.username][0] || "?").toUpperCase())}" autocomplete="off"></label>
+       <div class="swatches" role="group" aria-label="Icon colour"><button class="sw auto" data-c="" aria-pressed="${!pf.color}">Auto</button>${PALETTE.map(c => `<button class="sw" data-c="${c}" style="background:${c}" aria-label="Colour ${c}" aria-pressed="${pf.color === c}"></button>`).join("")}</div>
+       <button class="btn primary small" data-act="pf-save">Save icon</button>
+       <hr class="menu-sep">
+       <label class="menu-field">Username<input id="pf-name" type="text" maxlength="16" value="${esc(auth.username)}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+       <div class="row"><button class="btn small" data-act="rename">Change username</button><button class="btn small" data-act="main">Back</button></div>`;
+  } else if (view === "del") body = `<p class="muted small" style="margin:.2rem 0 .5rem">This permanently deletes your account, your scores and your game history. It can’t be undone.</p>
+       <label class="menu-field">Enter your password to confirm<input id="del-pw" type="password" autocomplete="current-password" maxlength="72"></label>
+       <div class="row" style="margin-top:.5rem"><button class="btn danger small" data-act="del-go">Delete my account</button><button class="btn small" data-act="main">Cancel</button></div>`;
+  else body = `<div class="menu-list"><button class="menu-item" data-act="profile">Edit icon and username</button><button class="menu-item" data-act="pw">Change password</button><button class="menu-item" data-act="del">Delete account</button><button class="menu-item danger" data-act="signout">Sign out</button></div>`;
+  acct.innerHTML = head + body + '<p id="acct-msg" class="msg" role="status"></p>';
   acct.hidden = false; const b = $("#acct-btn"); if (b) b.setAttribute("aria-expanded", "true");
 }
+function previewLook() { const u = { username: auth.username, avatar_letter: pf.letter, avatar_color: pf.color }; const el = $("#pf-av"); if (el) el.innerHTML = avHTML(u, "lg"); }
+const applyUser = d => { auth = { ...auth, username: d.username, is_admin: !!d.is_admin, avatar_letter: d.avatar_letter, avatar_color: d.avatar_color }; saveSession(); applyAuthUI(true); };
+acct.addEventListener("input", e => { if (e.target.id === "pf-letter" && pf) { pf.letter = firstChar(e.target.value); previewLook(); } });
 acct.addEventListener("click", async e => {
+  const sw = e.target.closest(".sw");
+  if (sw && pf) { pf.color = sw.dataset.c; $$(".sw", acct).forEach(x => x.setAttribute("aria-pressed", String(x === sw))); return previewLook(); }
   const b = e.target.closest("[data-act]"); if (!b) return; const act = b.dataset.act;
   if (act === "signout") { closeAcct(); signOut(); }
-  else if (act === "pw" || act === "main") openAcct(act);
+  else if (["pw", "main", "profile", "del"].includes(act)) { pf = null; openAcct(act); }
   else if (act === "pw-save") {
     const r = await rpc("change_password", { p_tok: auth.token, p_old: $("#pw-old").value, p_new: $("#pw-new").value });
     if (!r.ok && r.code === "not_signed_in") return sessionKicked();
     say("#acct-msg", r.ok ? "Password changed." : (r.code === "wrong" ? "Current password is wrong." : r.error), !r.ok);
+  } else if (act === "pf-save") {
+    const r = await rpc("update_profile", { p_tok: auth.token, p_letter: pf.letter || null, p_color: pf.color || null });
+    if (!r.ok && r.code === "not_signed_in") return sessionKicked();
+    if (r.ok) { applyUser(r.data); pf = null; openAcct("profile"); } say("#acct-msg", r.ok ? "Icon saved." : r.error, !r.ok);
+  } else if (act === "rename") {
+    const n = $("#pf-name").value.trim(); if (n === auth.username) return say("#acct-msg", "That’s already your username.");
+    const r = await rpc("rename_user", { p_tok: auth.token, p_new: n });
+    if (!r.ok && r.code === "not_signed_in") return sessionKicked();
+    if (r.ok) { applyUser(r.data); pf = null; openAcct("profile"); route(); } say("#acct-msg", r.ok ? "Username changed." : r.error, !r.ok);
+  } else if (act === "del-go") {
+    if (!$("#del-pw").value) return say("#acct-msg", "Enter your password first.", true);
+    const r = await rpc("delete_account", { p_tok: auth.token, p_pw: $("#del-pw").value });
+    if (!r.ok && r.code === "not_signed_in") return sessionKicked();
+    if (!r.ok) return say("#acct-msg", r.code === "wrong" ? "That password is wrong." : r.error, true);
+    closeAcct(); clearSession(); applyAuthUI(); route(); openAuth("Your account was deleted.", "up");
   }
 });
 document.addEventListener("click", e => {
   if (e.target.closest("#acct-btn")) { acct.hidden ? openAcct() : closeAcct(); }
-  else if (!acct.hidden && !e.target.closest("#acct-menu")) closeAcct();
+  else if (!acct.hidden && !e.composedPath().includes(acct)) closeAcct(); // composedPath: the clicked button may already be replaced
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeAcct(); });
 
