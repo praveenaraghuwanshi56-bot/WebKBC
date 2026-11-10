@@ -85,6 +85,16 @@ select,input[type=text],input[type=password],input[type=number]{font:500 .95rem 
 .sw[aria-pressed=true]{box-shadow:0 0 0 3px var(--accent)}
 .sw.auto{width:auto;padding:0 .7rem;border-radius:99px;background:var(--bg);color:var(--text);font:600 .75rem var(--font-ui)}
 .menu-sep{border:0;border-top:1px solid var(--line);margin:.8rem 0}
+.opt.speaking{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.opt.locked{background:var(--accent);border-color:var(--accent);color:var(--on-accent);animation:lockpulse 1s ease-in-out infinite}
+.opt.locked b{color:inherit}
+@keyframes lockpulse{50%{box-shadow:0 0 0 7px var(--glow)}}
+.lockrow{display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;margin-top:1rem}
+.spk-row{display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
+.chk{display:flex;gap:.5rem;align-items:center;color:var(--text);font-size:.95rem;margin:.35rem 0}
+input[type=range]{width:100%;max-width:26rem;accent-color:var(--accent)}
+.rng{display:grid;gap:.1rem;margin:.7rem 0;color:var(--muted);font-size:.85rem;max-width:26rem}
+.rng b{color:var(--text);font-family:var(--font-mono);font-weight:500}
 /* game */
 .game{display:grid;grid-template-columns:1fr 12.5rem;gap:1.2rem;align-items:start}
 .ladder{list-style:none;margin:0;padding:.6rem;display:flex;flex-direction:column-reverse;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:20px}
@@ -192,7 +202,7 @@ const ERR = { wrong:"Wrong username or password.", locked:"Too many wrong tries.
   bad_username:"Use 3 to 16 letters, numbers or underscores.", bad_password:"Use 6 to 72 characters.", forbidden:"Only the admin can do that.",
   not_signed_in:"Please sign in again.", no_game:"That game has ended. Start a new one.", out_of_sync:"Out of sync. Start a new game.",
   lifeline_used:"You already used that lifeline.", bad_key:"That doesn’t look like a Gemini key. Copy it again from Google AI Studio with no spaces.", bad_model:"Pick a valid model name.",
-  admin_protected:"The admin account can’t be deleted.", bad_icon:"Use one letter or emoji, with no spaces.", bad_color:"Pick one of the colours." };
+  admin_protected:"The admin account can’t be deleted.", bad_icon:"Use one letter or emoji, with no spaces.", bad_tts:"Those speech settings aren’t valid.", bad_color:"Pick one of the colours." };
 async function rpc(name, args) {
   if (!sb) return { ok: false, net: true, error: "Not connected to Supabase yet." };
   const { data, error } = await sb.rpc(name, args);
@@ -246,7 +256,7 @@ async function submitAuth() {
   $("#auth-go").disabled = false;
   if (!r.ok) return say("#auth-msg", r.error, true);
   auth = { token: r.data.token, username: r.data.username, is_admin: !!r.data.is_admin, avatar_letter: r.data.avatar_letter, avatar_color: r.data.avatar_color };
-  saveSession(); say("#auth-msg", ""); $("#auth-pass").value = ""; applyAuthUI(); route();
+  saveSession(); say("#auth-msg", ""); $("#auth-pass").value = ""; applyAuthUI(); loadConfig(); route();
 }
 async function verifySession() {
   if (!auth) return;
@@ -324,7 +334,7 @@ let tick = null; const stopTimer = () => clearInterval(tick);
 function route() {
   let n = (location.hash || "#home").slice(1);
   if (!ROUTES[n] || (n === "admin" && !(auth && auth.is_admin))) n = "home";
-  stopTimer();
+  stopTimer(); stopSpeech();
   $$(".tabs a").forEach(a => { if (a.getAttribute("href") === "#" + n) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
   if (auth) ROUTES[n](); else $("#view").innerHTML = "";
 }
@@ -339,6 +349,75 @@ function renderHome() {
   </div>`;
 }
 
+/* ============ Read aloud (browser speech; every setting comes from the admin) ============ */
+const TTS_DEFAULT = { enabled: true, auto: true, lang: "en-IN", voice: "", rate: .95, pitch: 1, volume: 1, pause_ms: 500, labels: true, announce: true, extra_secs: 12 };
+let CFG = { tts: { ...TTS_DEFAULT } };
+async function loadConfig() { const r = await rpc("get_config", {}); if (r.ok && r.data && r.data.tts) CFG.tts = { ...TTS_DEFAULT, ...r.data.tts }; }
+const canSpeak = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+let voices = [];
+if (canSpeak) { const lv = () => { voices = speechSynthesis.getVoices(); }; lv(); speechSynthesis.addEventListener && speechSynthesis.addEventListener("voiceschanged", lv); }
+const ttsOn = () => canSpeak && CFG.tts.enabled;
+const userAuto = () => { try { const v = localStorage.getItem("kb-auto"); return v === null ? !!CFG.tts.auto : v === "1"; } catch { return !!CFG.tts.auto; } };
+const normLang = l => String(l || "").toLowerCase().replace("_", "-");
+function pickVoice(t) {
+  if (t.voice) { const v = voices.find(x => x.name === t.voice); if (v) return v; }
+  const l = normLang(t.lang);
+  return voices.find(v => normLang(v.lang) === l) || voices.find(v => normLang(v.lang).startsWith(l.slice(0, 2))) || null;
+}
+let speakId = 0;
+function setSpkBtn(on) { const b = $("#spk"); if (b) { b.setAttribute("aria-pressed", String(on)); b.textContent = on ? "⏹ Stop" : "🔊 Read aloud"; } }
+function stopSpeech() { speakId++; if (canSpeak) speechSynthesis.cancel(); $$(".speaking").forEach(e => e.classList.remove("speaking")); setSpkBtn(false); }
+function unlockSpeech() { if (canSpeak && CFG.tts.enabled) { const u = new SpeechSynthesisUtterance(""); u.volume = 0; speechSynthesis.speak(u); } } // lets phones allow later auto-reading
+// parts: [{text, sel}]  sel = CSS selector of the option to highlight while it is being read
+function speakParts(parts, t = CFG.tts) {
+  if (!canSpeak || !t.enabled || !parts.length) return;
+  stopSpeech(); const id = speakId, voice = pickVoice(t); let i = 0;
+  setSpkBtn(true);
+  const next = () => {
+    if (id !== speakId) return;
+    $$(".speaking").forEach(e => e.classList.remove("speaking"));
+    if (i >= parts.length) return setSpkBtn(false);
+    const p = parts[i++], el = p.sel && $(p.sel); if (el) el.classList.add("speaking");
+    const u = new SpeechSynthesisUtterance(p.text);
+    u.lang = voice ? voice.lang : t.lang; if (voice) u.voice = voice;
+    u.rate = +t.rate; u.pitch = +t.pitch; u.volume = +t.volume;
+    u.onend = u.onerror = () => { if (id === speakId) setTimeout(next, +t.pause_ms); };
+    speechSynthesis.speak(u);
+  };
+  setTimeout(next, 80);
+}
+// Question, then Option A + its text, then Option B + its text, and so on (options hidden by 50:50 are skipped).
+function qParts(q, num, selFor, hidden = [], t = CFG.tts) {
+  const out = [];
+  if (t.announce && num) out.push({ text: `Question ${num}.` });
+  out.push({ text: q.q });
+  q.options.forEach((o, k) => { if (!hidden.includes(k)) out.push({ text: (t.labels ? `Option ${"ABCD"[k]}. ` : "") + o, sel: selFor(k) }); });
+  return out;
+}
+const speakUI = () => ttsOn() ? `<button class="btn small" id="spk" aria-pressed="false">🔊 Read aloud</button><label class="chk small"><input type="checkbox" id="auto" ${userAuto() ? "checked" : ""}> Auto-read</label>` : "";
+function readKbc() { if (!ttsOn() || !G) return; G.ttsUsed = true; speakParts(qParts(G.qs[G.i], G.i + 1, k => `.opt[data-k="${k}"]`, G.hidden)); }
+document.addEventListener("visibilitychange", () => { if (document.hidden) stopSpeech(); });
+
+/* ============ Sound effects (made in the browser with Web Audio, no files needed) ============ */
+let actx = null;
+const sfxOn = () => { try { return localStorage.getItem("kb-sfx") !== "0"; } catch { return true; } };
+function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; } } if (actx.state === "suspended") actx.resume(); return actx; }
+function tone(freq, at, dur, type = "sine", vol = .16) {
+  const a = actx, o = a.createOscillator(), g = a.createGain(), t = a.currentTime + at;
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .05);
+}
+function sfx(kind) {
+  if (!sfxOn()) return; const a = audio(); if (!a) return;
+  if (kind === "pick") tone(660, 0, .07, "sine", .07);
+  else if (kind === "lock") { tone(196, 0, .2, "triangle", .2); tone(147, .12, .4, "triangle", .2); }
+  else if (kind === "right") { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, i * .12, .45, "triangle", .2)); tone(1046.5, .5, .9, "sine", .1); }
+  else if (kind === "wrong") { tone(220, 0, .35, "sawtooth", .11); tone(207.65, .3, .35, "sawtooth", .11); tone(155.56, .62, .8, "sawtooth", .11); }
+}
+const sfxUI = () => `<label class="chk small"><input type="checkbox" id="sfx" ${sfxOn() ? "checked" : ""}> Sounds</label>`;
+const SUSPENSE = [2000, 5000]; // milliseconds: random pause between locking an answer and the reveal
+
 /* ============ KBC quiz ============ */
 let G = null;
 const limitFor = i => i < 5 ? 30 : i < 10 ? 45 : 60;
@@ -352,72 +431,101 @@ function renderKbc() {
   $("#go").onclick = startKbc;
 }
 async function startKbc() {
-  const cls = $("#cls").value; try { localStorage.setItem("kb-cls", cls); } catch {}
+  unlockSpeech(); audio(); const cls = $("#cls").value; try { localStorage.setItem("kb-cls", cls); } catch {}
   $("#go").disabled = true; $("#msg").innerHTML = '<span class="spin"></span> Writing your questions…'; $("#msg").className = "msg";
+  await loadConfig();
   const r = await generate({ kind: "kbc", cls });
   if (!r.ok) { say("#msg", r.error, true); $("#go").disabled = false; return; }
   G = { gid: r.data.gid, qs: r.data.questions, i: 0, hidden: [], life: { ff: 1, poll: 1, ph: 1 }, extra: "", cls, busy: false };
   showQ();
 }
-function showQ() { G.t0 = Date.now(); drawQ(); }
+function markReady(gid, lvl, tries = 2) { rpc("kbc_ready", { p_tok: auth.token, p_gid: gid, p_lvl: lvl }).then(r => { if (!r.ok && r.net && tries > 1) setTimeout(() => markReady(gid, lvl, tries - 1), 1000); }); }
+function showQ() { G.t0 = Date.now(); G.ttsUsed = false; G.sel = -1; G.locked = false; drawQ(); markReady(G.gid, G.i); if (ttsOn() && userAuto()) readKbc(); }
 function drawQ() {
   const q = G.qs[G.i];
   $("#view").innerHTML = `<div class="game"><section class="panel"><div class="row" style="justify-content:space-between"><b>Question ${G.i + 1} of 15 · ${rupee(LADDER[G.i])}</b><span id="tl" class="muted"></span></div>
     <div class="timer" aria-hidden="true"><i id="tb" style="width:100%"></i></div><p class="q">${esc(q.q)}</p>
-    <div class="opts">${q.options.map((o, k) => `<button class="opt ${G.hidden.includes(k) ? "gone" : ""}" data-k="${k}"><b>${"ABCD"[k]}</b><span>${esc(o)}</span></button>`).join("")}</div>
+    <div class="opts">${q.options.map((o, k) => `<button class="opt ${G.hidden.includes(k) ? "gone" : ""} ${G.sel === k ? "pick" : ""}" data-k="${k}"><b>${"ABCD"[k]}</b><span>${esc(o)}</span></button>`).join("")}</div>
+    <div class="lockrow"><button class="btn primary" id="lock" ${G.sel < 0 ? "disabled" : ""}>🔒 Lock answer</button><span id="lockhint" class="muted small">Choose an option, then lock it in. If time runs out, your selected option becomes your answer.</span></div>
     <div class="lifelines"><button class="life" data-l="ff" ${G.life.ff ? "" : "disabled"}>50:50</button><button class="life" data-l="poll" ${G.life.poll ? "" : "disabled"}>Audience poll</button><button class="life" data-l="ph" ${G.life.ph ? "" : "disabled"}>Phone a friend</button>
-      <button class="btn small" id="quit" style="margin-left:auto">Take ${rupee(G.i ? LADDER[G.i - 1] : 0)} and leave</button></div>
+      <span class="spk-row">${speakUI()}${sfxUI()}</span><button class="btn small" id="quit" style="margin-left:auto">Take ${rupee(G.i ? LADDER[G.i - 1] : 0)} and leave</button></div>
     <p id="lmsg" class="msg" role="status"></p><div id="extra" aria-live="polite">${G.extra}</div></section>
     <ol class="ladder" aria-label="Prize ladder">${LADDER.map((p, k) => `<li class="${SAFE.includes(k) ? "safe" : ""} ${k < G.i ? "done" : ""} ${k === G.i ? "now" : ""}"><span>${k + 1}</span><span>${rupee(p)}</span></li>`).join("")}</ol></div>`;
-  $$(".opt").forEach(b => b.onclick = () => answer(+b.dataset.k));
+  $$(".opt").forEach(b => b.onclick = () => choose(+b.dataset.k));
+  $("#lock").onclick = () => { if (G.sel >= 0) lockAnswer(G.sel); };
+  $("#sfx").onchange = e => { try { localStorage.setItem("kb-sfx", e.target.checked ? "1" : "0"); } catch {} if (e.target.checked) sfx("pick"); };
   $$(".life").forEach(b => b.onclick = () => life(b.dataset.l));
   $("#quit").onclick = quitKbc;
+  if ($("#spk")) {
+    $("#spk").onclick = () => $("#spk").getAttribute("aria-pressed") === "true" ? stopSpeech() : readKbc();
+    $("#auto").onchange = e => { try { localStorage.setItem("kb-auto", e.target.checked ? "1" : "0"); } catch {} };
+  }
   const now = $(".ladder .now"); if (now) now.scrollIntoView({ block: "nearest", inline: "center" });
   startTimer();
 }
 function startTimer() {
-  stopTimer(); const lim = limitFor(G.i);
+  stopTimer();
   tick = setInterval(() => {
+    const lim = limitFor(G.i) + (G.ttsUsed && ttsOn() ? +CFG.tts.extra_secs : 0);
     const tb = $("#tb"); if (!tb) return stopTimer();
     const left = lim - (Date.now() - G.t0) / 1000;
     tb.style.width = Math.max(0, left / lim * 100) + "%"; $("#tl").textContent = Math.ceil(Math.max(left, 0)) + "s";
-    if (left <= 0) { stopTimer(); answer(-1); }
+    if (left <= 0) { stopTimer(); lockAnswer(G.sel, "time"); } // a selected-but-unlocked option becomes the answer
   }, 250);
 }
 function sparks(el) { if (!el) return; for (let i = 0; i < 14; i++) { const s = document.createElement("i"); s.className = "spark"; s.style.setProperty("--dx", (Math.random() * 120 - 60) + "px"); s.style.setProperty("--dy", (Math.random() * 60 - 30) + "px"); el.appendChild(s); setTimeout(() => s.remove(), 900); } }
-async function answer(k) {
-  if (G.busy) return; G.busy = true; stopTimer();
-  $$(".opt").forEach(o => o.disabled = true); if (k >= 0) $$(".opt")[k].classList.add("pick");
-  const r = await rpc("kbc_answer", { p_tok: auth.token, p_gid: G.gid, p_lvl: G.i, p_choice: k });
+function choose(k) {
+  if (G.busy || G.locked) return;
+  G.sel = k; sfx("pick");
+  $$(".opt").forEach(o => o.classList.toggle("pick", +o.dataset.k === k));
+  $("#lock").disabled = false; say("#lockhint", `Happy with ${"ABCD"[k]}? Lock it in. If time runs out, it becomes your answer.`);
+}
+async function lockAnswer(k, why) {   // k = -1 means nothing was chosen
+  if (G.locked) return; G.locked = true; G.busy = true; stopTimer(); stopSpeech();
+  $$(".opt,.life,#lock,#quit,#spk").forEach(x => x.disabled = true);
+  const opts = $$(".opt"), chosen = k >= 0;
+  opts.forEach(o => o.classList.remove("pick"));
+  if (chosen) { opts[k].classList.add("locked"); sfx("lock"); }
+  say("#lockhint", why === "time" ? (chosen ? "Time’s up. Your selected answer is locked in." : "Time’s up!") : "Locked. Let’s see…");
+  const wait = chosen ? SUSPENSE[0] + Math.random() * (SUSPENSE[1] - SUSPENSE[0]) : 700;
+  // The server gets the answer straight away (so the clock stops honestly); the browser holds the reveal for the suspense pause.
+  const [r] = await Promise.all([rpc("kbc_answer", { p_tok: auth.token, p_gid: G.gid, p_lvl: G.i, p_choice: k, p_extra: G.ttsUsed && ttsOn() ? +CFG.tts.extra_secs : 0 }), sleep(wait)]);
   if (!r.ok) { if (r.code === "not_signed_in") return sessionKicked(); $("#extra").innerHTML = `<p class="msg bad">${esc(r.error)} <a href="#kbc">Start a new game</a></p>`; return; }
-  const d = r.data, opts = $$(".opt");
-  opts.forEach(o => o.classList.remove("pick")); opts[d.correct_index].classList.add("ok"); if (k >= 0 && k !== d.correct_index) opts[k].classList.add("bad");
+  const d = r.data;
+  opts.forEach(o => o.classList.remove("locked")); opts[d.correct_index].classList.add("ok"); if (chosen && k !== d.correct_index) opts[k].classList.add("bad");
+  sfx(d.correct ? "right" : "wrong");   // tune only: nothing is spoken here
   if (d.correct) sparks($(".ladder .now"));
-  await sleep(1500);
+  await sleep(2000);
   if (d.correct && !d.finished) { G.i++; G.hidden = []; G.extra = ""; G.busy = false; showQ(); }
   else if (d.correct) endKbc(d.score, "Crorepati! You won");
   else { $("#extra").innerHTML = `<div class="note">${esc(d.explanation)}</div>`; await sleep(2600); endKbc(d.score, d.timeout ? "Time’s up. You take home" : "Wrong answer. You take home"); }
 }
 async function life(kind) {
-  if (G.busy || !G.life[kind]) return; G.busy = true;
+  if (G.busy || G.locked || !G.life[kind]) return; G.busy = true; stopSpeech();
   const r = await rpc("kbc_lifeline", { p_tok: auth.token, p_gid: G.gid, p_kind: kind, p_lvl: G.i });
+  if (G.locked) return;   // time ran out and the answer was locked while this was in flight
   G.busy = false;
   if (!r.ok) { if (r.code === "not_signed_in") return sessionKicked(); return say("#lmsg", r.error, true); }
   G.life[kind] = 0; const d = r.data;
-  if (kind === "ff") G.hidden = d.hidden;
+  if (kind === "ff") { G.hidden = d.hidden; if (G.hidden.includes(G.sel)) G.sel = -1; }
   if (kind === "poll") G.extra = `<div class="bars" role="img" aria-label="Audience poll results">${d.pct.map((p, k) => `<div>${p}%<span data-h="${p}"></span>${"ABCD"[k]}</div>`).join("")}</div>`;
   if (kind === "ph") G.extra = `<div class="note"><b>Your friend says:</b> “Hmm, let me think… ${esc(d.text)} I’m about ${d.sure}% sure it’s <b>${d.letter}</b>.”</div>`;
   drawQ();
+  if (ttsOn() && userAuto() && kind !== "ff") {   // 50:50 stays silent
+    G.ttsUsed = true;
+    if (kind === "ph") speakParts([{ text: `Hmm, let me think. ${d.text} I’m about ${d.sure} percent sure it’s option ${d.letter}.` }]);
+    else { const top = d.pct.indexOf(Math.max(...d.pct)); speakParts([{ text: `The audience seems to think it’s option ${"ABCD"[top]}.` }, { text: G.qs[G.i].options[top], sel: `.opt[data-k="${top}"]` }]); }
+  }
   requestAnimationFrame(() => requestAnimationFrame(() => $$(".bars span").forEach(s => s.style.height = s.dataset.h * .8 + "px")));
 }
 async function quitKbc() {
-  if (G.busy) return; G.busy = true; stopTimer();
+  if (G.busy || G.locked) return; G.busy = true; stopTimer();
   const r = await rpc("kbc_quit", { p_tok: auth.token, p_gid: G.gid });
   if (!r.ok) { if (r.code === "not_signed_in") return sessionKicked(); G.busy = false; return say("#lmsg", r.error, true); }
   endKbc(r.data.score, "You walked away with");
 }
 function endKbc(amount, title) {
-  stopTimer(); const cls = G.cls, reached = G.i + 1; G = null;
+  stopTimer(); stopSpeech(); const cls = G.cls, reached = G.i + 1; G = null;
   $("#view").innerHTML = `<section class="panel" style="text-align:center"><h1>${esc(title)}</h1><p class="big">${rupee(amount)}</p>
     <p class="muted">You reached question ${reached} in ${esc(cls)}.${amount > 0 ? " Your score was recorded by the server." : ""}</p>
     <div class="row" style="justify-content:center;margin-top:1rem"><button class="btn primary" id="again">Play again</button><a class="btn" href="#leaderboard" style="text-decoration:none">See leaderboard</a></div></section>`;
@@ -442,6 +550,7 @@ async function extractText(f) {
   return out;
 }
 async function makeStudy() {
+  unlockSpeech(); await loadConfig();
   const f = $("#file").files[0]; if (!f) return say("#msg", "Choose a PDF or .txt file first.", true);
   if (f.size > 15 * 1024 * 1024) return say("#msg", "That file is over 15 MB. Try a smaller one.", true);
   const cls = $("#scls").value; $("#mk").disabled = true; $("#msg").className = "msg"; $("#msg").innerHTML = '<span class="spin"></span> Reading your file…';
@@ -455,10 +564,12 @@ async function makeStudy() {
   } catch (e) { say("#msg", e.message, true); $("#mk").disabled = false; }
 }
 function drawStudy() {
-  $("#view").innerHTML = `<section class="panel"><h2>Study quiz · ${esc(S.cls)}</h2>${S.qs.map((q, i) => `<div style="margin:1.2rem 0"><p class="q">${i + 1}. ${esc(q.q)}</p><div class="opts">${q.options.map((o, k) => `<button class="opt" data-q="${i}" data-k="${k}" aria-pressed="false"><b>${"ABCD"[k]}</b><span>${esc(o)}</span></button>`).join("")}</div></div>`).join("")}
+  $("#view").innerHTML = `<section class="panel"><h2>Study quiz · ${esc(S.cls)}</h2>${S.qs.map((q, i) => `<div style="margin:1.2rem 0"><p class="q">${i + 1}. ${esc(q.q)}${ttsOn() ? ` <button class="btn small" data-spk="${i}" aria-label="Read question ${i + 1} aloud">🔊</button>` : ""}</p><div class="opts">${q.options.map((o, k) => `<button class="opt" data-q="${i}" data-k="${k}" aria-pressed="false"><b>${"ABCD"[k]}</b><span>${esc(o)}</span></button>`).join("")}</div></div>`).join("")}
     <button class="btn primary" id="sub">Check answers</button><p id="msg" class="msg" role="status"></p></section>`;
   $$(".opt").forEach(b => b.onclick = () => { const i = +b.dataset.q; S.pick[i] = +b.dataset.k; $$(`[data-q="${i}"]`).forEach(o => { o.classList.toggle("pick", o === b); o.setAttribute("aria-pressed", o === b); }); });
+  $$("[data-spk]").forEach(b => b.onclick = () => { const i = +b.dataset.spk; speakParts(qParts(S.qs[i], i + 1, k => `.opt[data-q="${i}"][data-k="${k}"]`)); });
   $("#sub").onclick = async () => {
+    stopSpeech();
     const un = S.pick.filter(p => p < 0).length; if (un && !confirm(`${un} question(s) unanswered. Check anyway?`)) return;
     $("#sub").disabled = true;
     const r = await rpc("study_submit", { p_tok: auth.token, p_gid: S.gid, p_answers: S.pick });
@@ -493,9 +604,9 @@ async function renderLb() {
 let admTab = "api";
 function renderAdmin() {
   $("#view").innerHTML = `<section class="panel"><h1>Admin console</h1><p class="muted">Everything here is checked on the server. Only the admin account can read or change it.</p>
-    <div class="admin-tabs">${[["api", "API key and limits"], ["logs", "Request log"], ["users", "Users"]].map(([k, l]) => `<button class="admin-tab ${k === admTab ? "active" : ""}" data-tab="${k}">${l}</button>`).join("")}</div><div id="adm"></div></section>`;
+    <div class="admin-tabs">${[["api", "API key and limits"], ["logs", "Request log"], ["speech", "Read aloud"], ["users", "Users"]].map(([k, l]) => `<button class="admin-tab ${k === admTab ? "active" : ""}" data-tab="${k}">${l}</button>`).join("")}</div><div id="adm"></div></section>`;
   $$(".admin-tab").forEach(b => b.onclick = () => { admTab = b.dataset.tab; renderAdmin(); });
-  ({ api: admApi, logs: admLogs, users: admUsers })[admTab]();
+  ({ api: admApi, logs: admLogs, speech: admSpeech, users: admUsers })[admTab]();
 }
 const admFail = r => { if (r.code === "not_signed_in") sessionKicked(); else say("#amsg", r.error, true); };
 async function admApi() {
@@ -519,6 +630,36 @@ async function admApi() {
   };
   $("#a-rm").onclick = async () => { if (!confirm("Remove the master key? Nobody can start a new quiz until you add one.")) return; const x = await rpc("admin_remove_key", { p_tok: auth.token }); x.ok ? admApi() : admFail(x); };
   $("#a-cache").onclick = async () => { const x = await rpc("admin_clear_cache", { p_tok: auth.token }); x.ok ? say("#amsg", "Quiz cache cleared.") : admFail(x); };
+}
+async function admSpeech() {
+  await loadConfig(); const t = CFG.tts;
+  const langs = [["en-IN", "English (India)"], ["en-GB", "English (UK)"], ["en-US", "English (US)"], ["hi-IN", "Hindi (India)"]];
+  const rng = (id, label, min, max, step, v) => `<label class="rng">${label}: <b id="${id}-v">${v}</b><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${v}"></label>`;
+  $("#adm").innerHTML = `${canSpeak ? "" : '<p class="msg bad">This browser has no speech support, so the preview won’t work here. Players on supported browsers will still hear it.</p>'}
+    <p class="muted">These apply to every player. Voices come from each player’s own device, so the sound varies a little between phones and computers.</p>
+    <label class="chk"><input type="checkbox" id="s-en" ${t.enabled ? "checked" : ""}> Turn read-aloud on</label>
+    <label class="chk"><input type="checkbox" id="s-auto" ${t.auto ? "checked" : ""}> Read each new question automatically (players can switch this off for themselves)</label>
+    <label class="chk"><input type="checkbox" id="s-ann" ${t.announce ? "checked" : ""}> Say “Question 3” before each question</label>
+    <label class="chk"><input type="checkbox" id="s-lab" ${t.labels ? "checked" : ""}> Say “Option A”, “Option B”… before each option</label>
+    <label class="field">Language<select id="s-lang">${langs.map(([c, n]) => `<option value="${c}" ${c === t.lang ? "selected" : ""}>${n}</option>`).join("")}</select></label>
+    <label class="field">Voice on this device<select id="s-voice"></select></label>
+    ${rng("s-rate", "Speed", .5, 1.6, .05, t.rate)}${rng("s-pitch", "Pitch", .5, 1.5, .05, t.pitch)}${rng("s-vol", "Volume", 0, 1, .05, t.volume)}${rng("s-pause", "Pause between each spoken part (ms)", 0, 2000, 50, t.pause_ms)}
+    ${rng("s-extra", "Extra seconds on the clock for players who listen", 0, 30, 1, t.extra_secs)}
+    <div class="row"><button class="btn" id="s-prev">▶ Preview</button><button class="btn primary" id="s-save">Save speech settings</button><button class="btn" id="s-reset">Reset to defaults</button></div><p id="amsg" class="msg" role="status"></p>`;
+  const fillVoices = () => {
+    const l = normLang($("#s-lang").value).slice(0, 2), list = voices.filter(v => normLang(v.lang).startsWith(l));
+    $("#s-voice").innerHTML = `<option value="">Automatic (best match for the language)</option>` + list.map(v => `<option value="${esc(v.name)}" ${v.name === t.voice ? "selected" : ""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("");
+  };
+  fillVoices(); if (canSpeak) speechSynthesis.onvoiceschanged = () => { voices = speechSynthesis.getVoices(); fillVoices(); };
+  $("#s-lang").onchange = () => { t.voice = ""; fillVoices(); };
+  [["s-rate", ""], ["s-pitch", ""], ["s-vol", ""], ["s-pause", ""], ["s-extra", ""]].forEach(([id]) => $("#" + id).oninput = e => { $("#" + id + "-v").textContent = e.target.value; });
+  const collect = () => ({ enabled: $("#s-en").checked, auto: $("#s-auto").checked, announce: $("#s-ann").checked, labels: $("#s-lab").checked, lang: $("#s-lang").value, voice: $("#s-voice").value,
+    rate: +$("#s-rate").value, pitch: +$("#s-pitch").value, volume: +$("#s-vol").value, pause_ms: +$("#s-pause").value, extra_secs: +$("#s-extra").value });
+  $("#s-prev").onclick = () => { const c = collect(); const q = { q: "Which river is called the Ganga of the South?", options: ["Godavari", "Krishna", "Kaveri", "Narmada"] };
+    if (!canSpeak) return say("#amsg", "This browser can’t play speech.", true); speakParts(qParts(q, 3, () => null, [], c), { ...c, enabled: true }); };
+  $("#s-save").onclick = async () => { const c = collect(); const x = await rpc("admin_save_tts", { p_tok: auth.token, p_cfg: c });
+    if (!x.ok) return admFail(x); CFG.tts = { ...TTS_DEFAULT, ...c }; say("#amsg", "Saved. Players get the new settings the next time they start a game."); };
+  $("#s-reset").onclick = async () => { const x = await rpc("admin_save_tts", { p_tok: auth.token, p_cfg: TTS_DEFAULT }); if (!x.ok) return admFail(x); CFG.tts = { ...TTS_DEFAULT }; admSpeech(); };
 }
 async function admLogs() {
   $("#adm").innerHTML = '<div class="row"><button class="btn small" id="l-ref">Refresh</button></div><p id="amsg" class="msg" role="status"></p><div id="logs"></div>';
@@ -545,7 +686,7 @@ if (!sb) {
   $("#setup").innerHTML = `<p><b>One step left.</b> Open <code>index.html</code> and paste your Supabase Project URL and anon key into the two settings at the top of the script, then reload. See the setup steps in the README.</p>`;
   authEl.hidden = false;
 } else {
-  applyAuthUI(); route(); if (!auth) openAuth(); else verifySession();
+  applyAuthUI(); route(); if (!auth) openAuth(); else { loadConfig(); verifySession(); }
   setInterval(verifySession, 30000);
   addEventListener("focus", verifySession);
 }
