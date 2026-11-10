@@ -465,7 +465,8 @@ async function admApi() {
   const s = r.data;
   $("#adm").innerHTML = `<p class="${s.has_key ? "" : "msg bad"}">${s.has_key ? `The master key is saved (ends in <code>${esc(s.hint)}</code>). It stays on the server and is never sent to browsers.` : "No master key yet. Quizzes can’t be written until you add one."}</p>
     <label class="field">Gemini API key<input id="a-key" type="password" autocomplete="off" placeholder="${s.has_key ? "Leave empty to keep the saved key" : "Paste your Gemini API key"}"></label>
-    <label class="field">Model<select id="a-model">${["gemini-2.0-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite"].map(m => `<option ${m === s.model ? "selected" : ""}>${m}</option>`).join("")}</select></label>
+    <label class="field">Model name<input id="a-model" type="text" list="a-models" value="${esc(s.model)}" autocomplete="off" spellcheck="false"><datalist id="a-models"><option value="gemini-3.8-flash"><option value="gemini-3.5-flash"><option value="gemini-3.1-flash-lite"></datalist></label>
+    <p class="muted small" style="margin:-.4rem 0 .6rem">Google retires models from time to time. If quizzes start failing with a 404 in the request log, type the current model name here.</p>
     <label class="field">New quizzes per user, per hour<input id="a-hr" type="number" min="1" value="${s.hourly_cap}"></label>
     <label class="field">New quizzes per day, all users<input id="a-day" type="number" min="10" value="${s.daily_cap}"></label>
     <label class="field">Question sets kept per level before reusing<input id="a-sets" type="number" min="1" max="50" value="${s.cache_sets}"></label>
@@ -474,7 +475,7 @@ async function admApi() {
   $("#a-save").onclick = async () => {
     const k = $("#a-key").value.trim();
     if (k && !/^[A-Za-z0-9._~-]{20,200}$/.test(k)) return say("#amsg", ERR.bad_key, true);
-    const x = await rpc("admin_save_settings", { p_tok: auth.token, p_key: k || null, p_model: $("#a-model").value, p_daily: +$("#a-day").value, p_hourly: +$("#a-hr").value, p_sets: +$("#a-sets").value });
+    const x = await rpc("admin_save_settings", { p_tok: auth.token, p_key: k || null, p_model: $("#a-model").value.trim(), p_daily: +$("#a-day").value, p_hourly: +$("#a-hr").value, p_sets: +$("#a-sets").value });
     if (!x.ok) return admFail(x); admApi().then(() => say("#amsg", "Saved."));
   };
   $("#a-rm").onclick = async () => { if (!confirm("Remove the master key? Nobody can start a new quiz until you add one.")) return; const x = await rpc("admin_remove_key", { p_tok: auth.token }); x.ok ? admApi() : admFail(x); };
