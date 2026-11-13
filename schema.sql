@@ -56,6 +56,7 @@ create table if not exists public.game_sessions (
   score bigint not null default 0,
   reached int not null default 0,
   ready boolean not null default false,
+  difficulty text not null default 'easy' check (difficulty in ('easy','medium','hard')),
   q_started_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   finished_at timestamptz
@@ -68,6 +69,7 @@ create table if not exists public.leaderboards (
   game_id uuid not null unique references public.game_sessions(id) on delete cascade,
   user_id uuid not null references public.app_users(id) on delete cascade,
   class_level text not null,
+  difficulty text not null default 'easy' check (difficulty in ('easy','medium','hard')),
   score bigint not null check (score between 0 and 10000000),
   reached int not null,
   created_at timestamptz not null default now()
@@ -83,6 +85,18 @@ create table if not exists public.cached_quizzes (
 );
 create index if not exists cached_quizzes_key on public.cached_quizzes (cache_key);
 
+create table if not exists public.curriculum_cache (
+  cache_key text primary key,
+  chapters jsonb not null check (jsonb_typeof(chapters) = 'array'),
+  updated_at timestamptz not null default now()
+);
+create table if not exists public.seen_questions (
+  user_id uuid not null references public.app_users(id) on delete cascade,
+  qhash text not null,
+  seen_at timestamptz not null default now(),
+  primary key (user_id, qhash)
+);
+create index if not exists seen_questions_recent on public.seen_questions (user_id, seen_at desc);
 create table if not exists public.api_logs (
   id bigint generated always as identity primary key,
   user_id uuid references public.app_users(id) on delete set null,
@@ -106,6 +120,8 @@ alter table public.app_settings enable row level security;
 alter table public.game_sessions enable row level security;
 alter table public.leaderboards enable row level security;
 alter table public.cached_quizzes enable row level security;
+alter table public.curriculum_cache enable row level security;
+alter table public.seen_questions enable row level security;
 alter table public.api_logs enable row level security;
 revoke all on all tables in schema public from anon, authenticated;
 -- (no RLS policies on purpose: the anon key cannot read or write any table)
@@ -140,10 +156,15 @@ begin
   update game_sessions set status = 'finished', score = p_score, reached = p_reached, finished_at = now()
    where id = p_gid and status = 'active' returning * into g;
   if found and g.mode = 'kbc' and p_score > 0 then
-    insert into leaderboards (game_id, user_id, class_level, score, reached)
-    values (g.id, g.user_id, g.class_level, p_score, p_reached) on conflict do nothing;
+    insert into leaderboards (game_id, user_id, class_level, difficulty, score, reached)
+    values (g.id, g.user_id, g.class_level, g.difficulty, p_score, p_reached) on conflict do nothing;
   end if;
 end $$;
+
+create or replace function public._diff_rank(p_diff text) returns int
+language sql immutable as $$
+  select case p_diff when 'hard' then 3 when 'medium' then 2 else 1 end
+$$;
 
 create or replace function public._user_json(r app_users, p_token text) returns jsonb
 language sql immutable as $$
@@ -218,7 +239,7 @@ end $$;
 
 -- ---------- Games (the server decides what is correct and what you win) ----------
 -- Called only by the edge function (service role): stores the full questions, returns them without answers.
-create or replace function public.create_game(p_tok text, p_mode text, p_cls text, p_questions jsonb) returns jsonb
+create or replace function public.create_game(p_tok text, p_mode text, p_cls text, p_questions jsonb, p_difficulty text default 'easy') returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare uid uuid := _uid(p_tok); g record; need int;
 begin
@@ -233,7 +254,8 @@ begin
   for g in select * from game_sessions where user_id = uid and status = 'active' for update loop
     perform _finish(g.id, case when g.mode = 'kbc' then _safe(g.lvl) else 0 end, g.lvl + 1);
   end loop;
-  insert into game_sessions (user_id, mode, class_level, questions) values (uid, p_mode, p_cls, p_questions) returning * into g;
+  insert into game_sessions (user_id, mode, class_level, questions, difficulty)
+  values (uid, p_mode, p_cls, p_questions, case when p_difficulty in ('easy','medium','hard') then p_difficulty else 'easy' end) returning * into g;
   return jsonb_build_object('ok', true, 'gid', g.id, 'questions',
     (select jsonb_agg(jsonb_build_object('q', e.v->'q', 'options', e.v->'options') order by e.ord)
        from jsonb_array_elements(p_questions) with ordinality as e(v, ord)));
@@ -348,16 +370,25 @@ begin
   return jsonb_build_object('ok', true, 'score', sc, 'review', rev);
 end $$;
 
+create or replace function public._tier(p_cls text) returns int
+language sql immutable as $$
+  select case p_cls
+    when '5th Class' then 5 when '6th Class' then 6 when '7th Class' then 7 when '8th Class' then 8
+    when '9th Class' then 9 when '10th Class' then 10 when '11th Class' then 11 when '12th Class' then 12
+    when 'General GK' then 13 else 0 end
+$$;
+
 create or replace function public.leaderboard(p_cls text default null, p_lim int default 20) returns jsonb
 language sql stable security definer set search_path = public, pg_temp as $$
   select coalesce(jsonb_agg(to_jsonb(t) order by t.rank), '[]'::jsonb) from (
-    select row_number() over (order by b.best desc, b.at) as rank, u.username, u.avatar_letter, u.avatar_color,
-           b.best as score, b.reached, b.cls
-      from (select distinct on (l.user_id) l.user_id, l.score as best, l.reached, l.created_at as at, l.class_level as cls
+    select row_number() over (order by b.tier desc, b.drank desc, b.best desc, b.at) as rank, u.username, u.avatar_letter, u.avatar_color,
+           b.best as score, b.reached, b.cls, b.difficulty
+      from (select distinct on (l.user_id) l.user_id, _tier(l.class_level) as tier, _diff_rank(l.difficulty) as drank, l.difficulty,
+                   l.score as best, l.reached, l.created_at as at, l.class_level as cls
               from leaderboards l where (p_cls is null or l.class_level = p_cls)
-             order by l.user_id, l.score desc, l.created_at) b
+             order by l.user_id, _tier(l.class_level) desc, _diff_rank(l.difficulty) desc, l.score desc, l.created_at) b
       join app_users u on u.id = b.user_id
-     order by b.best desc, b.at limit least(coalesce(p_lim, 20), 50)
+     order by b.tier desc, b.drank desc, b.best desc, b.at limit least(coalesce(p_lim, 20), 50)
   ) t
 $$;
 
@@ -414,6 +445,7 @@ language plpgsql security definer set search_path = public, pg_temp as $$
 begin
   if not _is_admin(p_tok) then return jsonb_build_object('ok', false, 'error', 'forbidden'); end if;
   delete from cached_quizzes where true;
+  delete from curriculum_cache where true;
   return jsonb_build_object('ok', true);
 end $$;
 
@@ -532,7 +564,7 @@ grant execute on function
   public.admin_remove_key(text), public.admin_clear_cache(text), public.admin_logs(text, int),
   public.admin_users(text), public.admin_delete_user(text, text)
   to anon, authenticated;
-grant execute on function public.gate(text), public.create_game(text, text, text, jsonb) to service_role;
+grant execute on function public.gate(text), public.create_game(text, text, text, jsonb, text) to service_role;
 
 -- ---------- Admin account ----------
 -- Username: admin   Password: rudsilver56   (change it from the account menu after your first sign-in)

@@ -23,10 +23,19 @@ Purpose of this file: so the project can be continued in a new chat, with a diff
 | The server checks answer order, the timer (+4 s grace), lifelines used once, winnings, and writes the leaderboard row | Anti-cheat. The client is never trusted. |
 | Custom username and password accounts (not Supabase Auth), copied from the owner's other website | Owner's choice. No email needed. Passwords hashed with bcrypt via pgcrypto. |
 | One device at a time; 5 wrong passwords locks 15 minutes | Mirrors the owner's other site. |
+| Leaderboard ranks class level first (General GK > 12th > ... > 5th), then score, then date; one row per player (their best at their highest level) | Owner's rule: higher-level points count more than lower-level points, whatever the numbers. |
+| KBC topics are chosen on the page and sent as ids; the Edge Function validates them against its own `CATEGORIES` list. Choosing every topic equals the normal full mix and reuses its cache | Keeps cache keys tidy (`kbc:<class>:<sorted ids>`). Topic ids exist in two places: `CATEGORIES` in `index.ts` and `CATS` in `index.html`. Keep them in step. |
+| CBSE quizzes run as mode `study` (10 questions, `study_submit`), with the class stored as `"<class> · <subject>"`; they are not ranked | Reuses the existing server-side grading. Only KBC is ranked. |
+| Chapter lists come from Gemini, are cached in `curriculum_cache` for 120 days, and players can add their own chapter names | The real textbooks aren't available to the app and NCERT revises books in stages, so a hard-coded list would go stale or be wrong. The screen says plainly that the AI's version may differ and points to uploading the real chapter PDF. |
+| Player-typed subject and chapter names are reduced to letters, numbers, spaces and simple punctuation before they enter a prompt, and at most 8 chapters are used | Limits prompt injection and keeps prompts short. |
+| Subject lists per class live only in `index.html` (`SUBJECTS`); the function accepts any sanitised subject text | One place to edit when NCERT adds or renames a subject. |
 | Only KBC scores go on the leaderboard | Study quizzes can be made easy by uploading trivial notes, so ranking them would be unfair. |
 | Quiz cache (`cached_quizzes`), N sets per level then reuse | Saves the Gemini free-tier quota. Admin can change N or clear it. |
 | Model name is a free-text admin setting | Google retires models; no code change needed next time. |
 | Read-aloud uses the browser's Web Speech API, with all options set by the admin | Free, no key, no quota. Voices vary by device. |
+| Lifeline answers (audience poll, phone a friend) are spoken after the lifeline is used; 50:50 and the answer reveal are never spoken. Lifeline speech follows the player's Auto-read switch | The brief asked for it; reveals use tunes only. |
+| Sound effects are synthesised with Web Audio (no files); the player can mute them | No assets to host or license. |
+| `kbc_ready` moves the clock start to when the question is shown | The suspense pause plus reveal (up to about 7 s) would otherwise cut into the next question's time. |
 | Extra clock seconds for players who listen (admin-set, capped on the server) | Reading aloud takes time. The client claims `p_extra`; the server caps it at the admin's value and ignores it if read-aloud is off. |
 
 ## 3. Files
@@ -36,6 +45,9 @@ public/index.html                        Entire site. Settings at the top: SUPAB
 schema.sql                               Complete database for a NEW project (includes everything in patches/).
 patches/01-profile-update.sql            update_profile, rename_user, delete_account.
 patches/02-speech-and-timer.sql          app_settings.tts, get_config, admin_save_tts, kbc_answer with p_extra.
+patches/03-lock-in-clock.sql             game_sessions.ready, kbc_ready, kbc_answer resets ready (fair clock for the lock-in pause). Needs patch 02.
+patches/04-leaderboard-by-level.sql      _tier() helper; leaderboard() ranks class level first, then score.
+patches/05-curriculum-cache.sql          curriculum_cache table (saved chapter lists); admin_clear_cache also clears it.
 supabase/functions/generate/index.ts     Edge Function: gate, cache, Gemini call, log, create_game.
 README.md                                Public-facing setup and usage.
 PROJECT_HISTORY.md                       This file.
@@ -43,7 +55,7 @@ PROJECT_HISTORY.md                       This file.
 
 ### Database objects (all in schema `public`)
 - **Tables:** `app_users`, `app_sessions`, `app_settings` (one row, id = 1), `game_sessions`, `leaderboards`, `cached_quizzes`, `api_logs`.
-- **Callable by the browser (anon key):** `signup`, `login`, `check_session`, `logout`, `change_password`, `update_profile`, `rename_user`, `delete_account`, `leaderboard`, `kbc_answer`, `kbc_quit`, `kbc_lifeline`, `study_submit`, `get_config`, and the admin set `admin_get_settings`, `admin_save_settings`, `admin_save_tts`, `admin_remove_key`, `admin_clear_cache`, `admin_logs`, `admin_users`, `admin_delete_user`.
+- **Callable by the browser (anon key):** `signup`, `login`, `check_session`, `logout`, `change_password`, `update_profile`, `rename_user`, `delete_account`, `leaderboard`, `kbc_answer`, `kbc_quit`, `kbc_lifeline`, `kbc_ready`, `study_submit`, `get_config`, and the admin set `admin_get_settings`, `admin_save_settings`, `admin_save_tts`, `admin_remove_key`, `admin_clear_cache`, `admin_logs`, `admin_users`, `admin_delete_user`.
 - **Service role only (the Edge Function):** `gate`, `create_game`.
 - **Internal helpers:** `_uid`, `_is_admin`, `_ladder`, `_safe`, `_finish`, `_user_json`.
 - **Parameters** of all browser-callable functions are prefixed `p_` (the client passes them by name).
@@ -52,6 +64,8 @@ PROJECT_HISTORY.md                       This file.
 - 15 questions. Prizes: 1,000 / 2,000 / 3,000 / 5,000 / 10,000 / 20,000 / 40,000 / 80,000 / 1,60,000 / 3,20,000 / 6,40,000 / 12,50,000 / 25,00,000 / 50,00,000 / 1,00,00,000.
 - Safe havens: after question 5 (₹10,000) and question 10 (₹3,20,000). A wrong or late answer pays the last safe haven.
 - Time per question: 30 s (Q1 to 5), 45 s (Q6 to 10), 60 s (Q11 to 15), plus 4 s grace, plus read-aloud extra if claimed.
+- **Lock in:** an option tap only selects it; the player presses Lock. The answer is sent to the server at that moment (this stops the clock honestly) while the browser holds the reveal for a random 2 to 5 second pause (`SUSPENSE` in `index.html`). If the timer ends with an option selected, it is locked automatically; with nothing selected the answer is -1 and counts as wrong.
+- **Clock start:** a question's server clock starts when the browser calls `kbc_ready` (the question is on screen), once, and only within 15 s of the previous answer. If it is never called, the older start time (the moment of the previous answer) applies, which is stricter.
 - Starting a new game while one is active ends the old one at its safe haven. Refreshing mid-game does the same.
 
 ## 4. Live deployment state (tick what applies to your project)
@@ -59,6 +73,10 @@ PROJECT_HISTORY.md                       This file.
 - [ ] Supabase project created; `schema.sql` run (or v1 then patches)
 - [ ] Patch `01-profile-update.sql` applied
 - [ ] Patch `02-speech-and-timer.sql` applied
+- [ ] Patch `03-lock-in-clock.sql` applied (run AFTER 02)
+- [ ] Patch `04-leaderboard-by-level.sql` applied
+- [ ] Patch `05-curriculum-cache.sql` applied (needed for the CBSE chapter lists)
+- [ ] Edge Function `generate` redeployed after v2.8 (topics, CBSE quizzes and chapter lists live in it)
 - [ ] Edge Function `generate` deployed (latest `index.ts`); Verify JWT setting: ______
 - [ ] Admin password changed from the starting one
 - [ ] Gemini key saved in Admin, and the old key from the chat history revoked
@@ -77,6 +95,9 @@ PROJECT_HISTORY.md                       This file.
 | v2.3 | Site renamed **WebKbc**. Owner's Supabase URL and anon key were put into `index.html`. |
 | v2.4 | Profile features: icon (letter or emoji), colour, username change, delete account (password required, admin protected). Fixed a bug where menu views closed themselves (click-outside check now uses `composedPath`). |
 | v2.5 | Read-aloud: question, then Option A and its text, Option B and so on, with the current option highlighted. Admin "Read aloud" tab (language, voice, speed, pitch, volume, pause, labels, auto-read, extra seconds, preview). `kbc_answer` gained `p_extra`. Added README and this history. Repo restructured into `public/`, `patches/`, `supabase/`. |
+| v2.6 | Lock button (select, then lock; Lock-in pause of 2 to 5 s; right and wrong tunes; unlocked selection is auto-locked when time runs out). Lifeline speech for Audience poll and Phone a friend (50:50 silent). `kbc_ready` and patch 03 so the suspense pause doesn't eat the next question's time. Speech and audio calls wrapped so a browser error can never stop a game starting. |
+| v2.7 | Admin: Delete account hidden from the admin menu (the server already refused it). Pencil icon beside the username (menu and home page) opens the profile editor; custom colour picker added. Icons on the three lifelines and a "Leave with ₹X" button. Leaderboard order changed to class level first (patch 04). Many more animations (all transform, opacity and colour only). JavaScript lowered to ES2017 and CSS given fallbacks for older engines (Pale Moon, MyPal). |
+| v2.8 | Topic-mixed KBC quizzes (16 topics, pick any, mixed together). Study page split into **My notes** and **CBSE / NCERT** (class, subject, optional chapters, custom chapter names). Edge Function rewritten with kinds `kbc`, `study`, `cbse`, `chapters`. Patch 05 adds `curriculum_cache`. |
 
 ## 6. Lessons learned (avoid repeating these)
 
@@ -86,6 +107,12 @@ PROJECT_HISTORY.md                       This file.
 - Browser caching causes "my fix didn't work" reports. Check with Ctrl+Shift+R or `view-source:`.
 - Copying text from collapsed sections (like the log's Request/Response panels) copies nothing; expand them first.
 - Changing a SQL function's parameter list creates an overload unless the old one is dropped first (this is why patch 02 drops the old `kbc_answer`).
+- A server clock that starts when an answer is saved is unfair once the browser adds delays (suspense, reveal). Start it when the question is displayed (`kbc_ready`) and cap how late that signal may arrive.
+- Wrap every speech and audio call in try/catch: an exception there must never stop a game from starting.
+- **Keep the script at ES2017.** No `?.`, `??`, object spread (`{...a}`), or bare `catch {` in `public/index.html`; use `Object.assign` and `catch (_e)`. Check with `acorn` (`ecmaVersion: 2017`). Supabase-js 2.45.4 itself needs ES2017; pdf.js needs newer.
+- CSS: put a plain fallback before any `clamp()`; use `top/right/bottom/left` instead of `inset`; flex `gap` has a margin fallback inside `@supports not (gap:1px)`.
+- The Edge Function can be tested outside Supabase: transpile `index.ts` with esbuild and run it in Node with a fake `Deno`, a fake Supabase client and a fake `fetch` for Gemini. This caught nothing in v2.8 but checks prompts, sanitising, caching and error codes in seconds.
+- Test pages over `http://`, not `file://`: headless Chromium sometimes loses localStorage across reloads on `file://`, which looks like a bug but isn't.
 - iPhones may block automatic speech unless it follows a tap. The code "unlocks" speech on the Play button; the Read aloud button always works.
 
 ## 7. Testing notes
@@ -101,6 +128,12 @@ How it was verified (no live Supabase or Gemini was available to the builder):
 - Resume an interrupted KBC game.
 - A personal history page (the data is in `game_sessions`).
 - Read the explanation aloud after answering.
+- Admin controls for the suspense pause range and the volume of sound effects.
+- Only the first question's text is needed at the start: sending questions one at a time would stop players from looking ahead.
+- A small topic label on each question (the model could return one; `create_game` would need to pass it through).
+- Admin-editable curriculum (chapter lists and subjects stored in the database instead of AI-written).
+- Search-grounded chapter lists (Gemini with Google Search) if that works with structured output on the model in use.
+- Real-device testing on MyPal / Pale Moon (only syntax and CSS were checked, not run).
 - Hindi-language questions (needs a prompt change and a Hindi voice).
 - Per-IP rate limiting in the Edge Function.
 - Shared quiz links or timed class competitions.

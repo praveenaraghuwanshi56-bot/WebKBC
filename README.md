@@ -7,10 +7,15 @@ A KBC-style (Kaun Banega Crorepati) quiz game with a Study Mode that turns your 
 ## What it does
 
 - **KBC quiz:** 15 levels of Indian GK from ₹1,000 to ₹1 crore, with safe havens at Level 5 and Level 10, a countdown per question, and three lifelines (50:50, Audience poll, Phone a friend). Classes 5th to 12th, plus General GK.
-- **Study mode:** Upload a PDF or `.txt` file and get 10 multiple-choice questions with explanations.
-- **Read aloud:** Questions and options are read in order (question, then Option A and its text, Option B, and so on) using the browser's built-in voices. The admin controls language, voice, speed, pitch, volume, pauses and more.
-- **Accounts:** Username and password sign-up and sign-in, one active device per account, lockout after 5 wrong passwords, and a profile menu (icon, colour, username, password, delete account).
-- **Leaderboard:** Best KBC score per player, per class. Scores are calculated and saved by the server, so they can't be faked from the browser.
+- **Lock it in:** Tapping an option only selects it. You press **Lock answer**, wait a 2 to 5 second suspense pause, and then hear a tune for a right or wrong answer. If the timer runs out while an option is selected but not locked, that option becomes your answer.
+- **Topics:** On the KBC page you can pick one or several topics (technology, software, physics, chemistry, biology, nature, geography, history, civics, economy, current affairs, sports, arts and culture, space, health, maths) and they are mixed into one quiz. No topic selected means a full mix.
+- **Study mode, two tabs:**
+  - **My notes:** upload a PDF or `.txt` file and get 10 multiple-choice questions with explanations, written from your material only.
+  - **CBSE / NCERT:** choose a class (5th to 12th), a subject, and optionally chapters (up to 8, or add your own chapter names), and get a 10-question quiz. Questions are written by the AI from its knowledge of the NCERT textbooks that CBSE prescribes, so they can differ from the very newest edition. For exact accuracy, download the chapter PDF (free at ncert.nic.in) and use it under *My notes*.
+- **Read aloud:** Questions and options are read in order (question, then Option A and its text, Option B, and so on) using the browser's built-in voices. The Audience poll and Phone a friend lifelines are spoken too ("The audience seems to think it's option B…"); 50:50 is silent, and so is the reveal, which only plays a tune. The admin controls language, voice, speed, pitch, volume, pauses and more.
+- **Sounds:** The lock, right-answer and wrong-answer tunes are made in the browser, so there are no audio files to host. Players can switch them off with the **Sounds** box.
+- **Accounts:** Username and password sign-up and sign-in, one active device per account, lockout after 5 wrong passwords, and a profile menu. A pencil icon next to your name opens the editor for your username, icon (a letter or emoji), and colour (10 presets or any custom colour). You can also change your password or delete your account. The admin account cannot be deleted.
+- **Leaderboard:** One row per player. A higher class level always ranks above a lower one (General GK, then 12th down to 5th), and within a level the higher score wins. So ₹10,000 in 12th Class ranks above ₹3,20,000 in 5th Class. Scores are calculated and saved by the server, so they can't be faked from the browser.
 - **Admin console:** Master Gemini key, model name, usage limits, request log, user list, quiz cache, and read-aloud settings.
 
 ## How it fits together
@@ -35,7 +40,7 @@ Why it is built this way:
 ```
 public/index.html                        The whole website (HTML, CSS, JS). Cloudflare publishes this folder.
 schema.sql                               Full database setup for a NEW Supabase project. Do not re-run on a live one.
-patches/                                 Small updates for an EXISTING database, run in number order.
+patches/                                 Small updates for an EXISTING database, run in number order (01 to 05).
 supabase/functions/generate/index.ts     The edge function that talks to Gemini.
 README.md                                This file.
 PROJECT_HISTORY.md                       Full history, decisions and a hand-over guide for any AI or developer.
@@ -89,6 +94,14 @@ The anon key is meant to be public. It cannot read or write any table. Never put
 - **Request log:** Each Gemini call with status, time, token estimate, and the raw request and response.
 - **Users:** See players and delete them.
 
+## Older browsers (Pale Moon, MyPal and similar)
+
+The site is written to run on browsers from roughly the Firefox 52 era, and animations use only simple fades and movements, so nothing breaks if a browser can't animate. Things that may not work on very old browsers:
+- **Study mode PDF upload:** the PDF reader library needs a newer browser. Plain `.txt` uploads may still work.
+- **Read aloud:** classic Pale Moon-based browsers usually have no speech support. The buttons simply don't appear and the game plays as text.
+- **Sign-in and quizzes** depend on the Supabase library and `fetch`. If the library can't load, the sign-in screen says so.
+Browser-support claims here come from parsing the code, not from running it in those browsers, so report anything odd.
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
@@ -106,5 +119,10 @@ The anon key is meant to be public. It cannot read or write any table. Never put
 
 - There is no password recovery, because accounts have no email. An admin tool to reset a password is a good next step.
 - Refreshing in the middle of a KBC game ends it at your last safe haven.
+- The suspense pause (2 to 5 seconds) is set by `SUSPENSE` in `public/index.html`, not in the admin panel. The sound effects are simple synthesised tones.
+- Phones on silent mode, or with the media volume down, will not play the sound effects.
 - Read-aloud voices are chosen by each device, so the sound differs between phones and computers.
 - Gemini can make factual mistakes, so spot-check questions, especially on smaller models.
+- **CBSE tab:** the chapter list is also written by the AI (and saved for 120 days), so it can be wrong or out of date, especially where NCERT has issued new textbooks. Tick what matches your book and add missing chapters by hand. *Admin → Clear quiz cache* also clears saved chapter lists.
+- **Current affairs** questions come from the AI's knowledge, so the newest events may be missing.
+- Every new combination of topics, or of class + subject + chapters, needs up to a few fresh Gemini calls before saved sets are reused. If the free quota is tight, lower "Question sets kept per level" in Admin.
