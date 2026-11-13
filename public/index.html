@@ -53,7 +53,7 @@ select,input[type=text],input[type=password],input[type=number]{font:500 .95rem 
 .msg{min-height:1.4em;margin:.6rem 0 0;color:var(--muted);font-size:.9rem}.msg.bad{color:var(--err)}
 .row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
 .field{display:grid;gap:.25rem;margin:.7rem 0;color:var(--muted);font-size:.85rem;max-width:26rem}
-.home-title{font-size:clamp(2rem,6vw,3.4rem);letter-spacing:-.035em;line-height:1.05;margin:1.5rem 0 .5rem;max-width:16ch}
+.home-title{font-size:2.6rem;font-size:clamp(2rem,6vw,3.4rem);letter-spacing:-.035em;line-height:1.05;margin:1.5rem 0 .5rem;max-width:16ch}
 .home-sub{margin:0 0 2rem;color:var(--muted);font-size:1.1rem}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:1rem}
 .card{display:flex;flex-direction:column;gap:.35rem;padding:1.4rem;background:var(--surface);border:1px solid var(--line);border-radius:22px;color:inherit;text-decoration:none;box-shadow:var(--shadow);transition:transform .15s,border-color .15s}
@@ -62,7 +62,7 @@ select,input[type=text],input[type=password],input[type=number]{font:500 .95rem 
 .card-emoji{width:3.2rem;height:3.2rem;display:grid;place-items:center;font-size:1.6rem;border-radius:16px;background:var(--b1)}
 .card:nth-child(2) .card-emoji{background:var(--b2)}.card:nth-child(3) .card-emoji{background:var(--b3)}
 /* sign-in gate + account */
-.authwrap{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:1rem;overflow:auto;background:var(--bg)}
+.authwrap{position:fixed;top:0;right:0;bottom:0;left:0;z-index:60;display:grid;place-items:center;padding:1rem;overflow:auto;background:var(--bg)}
 .authcard{width:min(24rem,100%);display:grid;gap:.8rem;padding:1.75rem;background:var(--surface);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow)}
 .auth-brand{font-size:1.5rem;font-weight:700;letter-spacing:-.02em}
 .authcard p{margin:0}.authcard .seg{justify-self:start}
@@ -105,7 +105,7 @@ input[type=range]{width:100%;max-width:26rem;accent-color:var(--accent)}
 @keyframes spark{to{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0}}
 .timer{height:8px;background:var(--bg);border-radius:9px;overflow:hidden;margin:.6rem 0 1rem}
 .timer i{display:block;height:100%;background:var(--accent);transition:width .25s linear}
-.q{font:600 clamp(1.15rem,2.6vw,1.45rem)/1.4 var(--font-ui);letter-spacing:-.01em;margin:.2rem 0 1.1rem}
+.q{font:600 1.3rem/1.4 var(--font-ui);font:600 clamp(1.15rem,2.6vw,1.45rem)/1.4 var(--font-ui);letter-spacing:-.01em;margin:.2rem 0 1.1rem}
 .opts{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
 .opt{display:flex;gap:.6rem;text-align:left;font:500 1rem var(--font-ui);color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:14px;padding:.8rem 1rem;cursor:pointer;transition:.15s}
 .opt:hover:not(:disabled){border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
@@ -119,7 +119,7 @@ input[type=range]{width:100%;max-width:26rem;accent-color:var(--accent)}
 .bars div{flex:1;text-align:center;font-size:.85rem}
 .bars span{display:block;background:var(--accent);border-radius:8px 8px 0 0;transition:height .9s cubic-bezier(.2,.8,.2,1);height:0}
 .note{background:var(--bg);border-left:4px solid var(--accent);border-radius:10px;padding:.7rem 1rem;margin-top:1rem}
-.big{font:700 clamp(2.4rem,8vw,3.6rem)/1.1 var(--font-ui);letter-spacing:-.03em;color:var(--accent);margin:.3rem 0}
+.big{font:700 3rem/1.1 var(--font-ui);font:700 clamp(2.4rem,8vw,3.6rem)/1.1 var(--font-ui);letter-spacing:-.03em;color:var(--accent);margin:.3rem 0}
 .rev{border-left:5px solid var(--line);padding:.6rem 1rem;margin:.8rem 0;background:var(--bg);border-radius:0 12px 12px 0}
 .rev.ok{border-color:var(--ok)}.rev.bad{border-color:var(--err)}
 .spin{display:inline-block;width:1em;height:1em;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:r 1s linear infinite;vertical-align:-.15em}
@@ -141,6 +141,69 @@ input[type=range]{width:100%;max-width:26rem;accent-color:var(--accent)}
 @media(max-width:760px){.top{grid-template-columns:1fr auto;grid-template-areas:"b r" "n n"}.brand{grid-area:b}.hdr-right{grid-area:r}.tabs{grid-area:n}.tabs a{flex:1;text-align:center;padding:.45rem .6rem}
   .game{grid-template-columns:1fr}.ladder{order:-1;flex-direction:row;overflow-x:auto}.ladder li{min-width:6.2rem}}
 @media(max-width:560px){.opts{grid-template-columns:1fr}}
+/* topics + chapters */
+.chips{display:flex;flex-wrap:wrap}
+.chip{margin:0 .4rem .4rem 0;padding:.4rem .85rem;font:600 .88rem var(--font-ui);color:var(--text);background:var(--bg);border:1.5px solid var(--line);border-radius:99px;cursor:pointer;transition:background-color .15s,border-color .15s,color .15s,transform .12s}
+.chip:hover{border-color:var(--accent)}
+.chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.chip:active{transform:scale(.96)}
+.chlist{max-height:16rem;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:.3rem .8rem;margin-top:.4rem;background:var(--bg)}
+.chlist .chk{margin:.5rem 0}
+#st-tabs{margin-top:.6rem}
+/* icons, pencil, colour picker */
+.ic{width:1.1em;height:1.1em;vertical-align:-.2em;margin-right:.4em;flex:none}
+.life{display:inline-flex;align-items:center}
+.life:disabled .ic{opacity:.5}
+.pencil{display:inline-block;vertical-align:middle;width:1.7rem;height:1.7rem;padding:0;line-height:0;border:1px solid var(--line);border-radius:50%;background:var(--bg);color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s,transform .15s}
+.pencil .ic{width:.95rem;height:.95rem;margin:0;vertical-align:middle}
+.pencil:hover{color:var(--accent);border-color:var(--accent);transform:rotate(-12deg)}
+.colorrow{display:flex;align-items:center;margin-top:.15rem}
+.colorrow input{width:3rem;height:2rem;padding:0;margin-right:.6rem;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer}
+/* Animations use only transform, opacity and colour, which older engines (Pale Moon, MyPal) handle.
+   Hidden states exist only in a keyframe "from", so if animation is unsupported everything simply shows. */
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes zoomin{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+@keyframes dropin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.06)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@keyframes ladderglow{0%,100%{box-shadow:0 0 6px var(--glow)}50%{box-shadow:0 0 20px var(--glow)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+#view.enter>*{animation:rise .4s ease-out both}
+#view.enter>*:nth-child(2){animation-delay:.07s}
+#view.enter>*:nth-child(3){animation-delay:.14s}
+.cards .card{animation:rise .45s ease-out both}
+.cards .card:nth-child(2){animation-delay:.08s}
+.cards .card:nth-child(3){animation-delay:.16s}
+.authcard{animation:zoomin .4s ease-out both}
+.acct-menu{animation:dropin .18s ease-out both}
+.game.enter .q{animation:rise .3s ease-out both}
+.game.enter .opt{animation:rise .32s ease-out both}
+.game.enter .opt:nth-child(2){animation-delay:.07s}
+.game.enter .opt:nth-child(3){animation-delay:.14s}
+.game.enter .opt:nth-child(4){animation-delay:.21s}
+.opt.ok{animation:pop .55s ease-out}
+.opt.bad{animation:shake .5s ease-out}
+.ladder li{transition:background-color .3s,color .3s}
+.ladder li.now{animation:ladderglow 1.8s ease-in-out infinite}
+.timer i.low{background:var(--err);animation:blink .7s ease-in-out infinite}
+.panel.win{animation:zoomin .5s ease-out both}
+.lb-list li{animation:rise .35s ease-out both}
+.btn:active:not(:disabled),.opt:active:not(:disabled),.life:active:not(:disabled){transform:scale(.97)}
+.life{transition:background-color .15s,color .15s,transform .12s}
+.life:not(:disabled):hover{background:var(--accent);color:var(--on-accent)}
+.av-btn{transition:transform .15s}
+.av-btn:hover{transform:scale(1.08)}
+.menu-item{transition:background-color .15s}
+/* Browsers without the CSS "gap" property (older Pale Moon / MyPal): spacing by margins instead */
+@supports not (gap:1px){
+  .row>*,.hdr-right>*,.lifelines>*,.spk-row>*,.lockrow>*,.menu-head>*,.swatches>*,.chk>*{margin-right:.5rem}
+  .tabs>*,.admin-tabs>*{margin-right:.25rem}
+  .swatches>*{margin-bottom:.4rem}
+  .opt b{margin-right:.6rem}
+  .ladder>*{margin-bottom:3px}
+  .cards{grid-gap:1rem}.opts{grid-gap:.7rem}.game{grid-gap:1.2rem}.top{grid-gap:1rem}
+  .menu-list{grid-gap:.15rem}.field,.rng,.menu-field,.authcard,.authcard label{grid-gap:.3rem}.lb-list li{grid-gap:.5rem}
+}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -186,13 +249,32 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
    functions in schema.sql, and each of those checks your session token. The Gemini key is NOT here. */
 
 const CLASSES = ["5th Class","6th Class","7th Class","8th Class","9th Class","10th Class","11th Class","12th Class"];
+// Topic ids must match CATEGORIES in supabase/functions/generate/index.ts
+const CATS = [["tech", "Technology"], ["software", "Software & computers"], ["physics", "Physics"], ["chemistry", "Chemistry"], ["biology", "Biology & body"],
+  ["nature", "Nature & environment"], ["geography", "Geography"], ["history", "History"], ["polity", "Civics & polity"], ["economy", "Economy & business"],
+  ["current", "Current affairs"], ["sports", "Sports"], ["culture", "Arts & culture"], ["space", "Space"], ["health", "Health"], ["maths", "Maths & logic"]];
+const SUBJ_MID = ["Mathematics", "Science", "Social Science", "English", "Hindi"];
+const SUBJ_SEC = ["Mathematics", "Science", "Social Science: History", "Social Science: Geography", "Social Science: Political Science", "Social Science: Economics", "English", "Hindi"];
+const SUBJ_SENIOR = ["Physics", "Chemistry", "Biology", "Mathematics", "English", "Hindi", "Accountancy", "Business Studies", "Economics", "History", "Geography", "Political Science", "Sociology", "Psychology", "Computer Science", "Informatics Practices", "Physical Education"];
+const SUBJECTS = { "5th Class": ["Mathematics", "Environmental Studies (EVS)", "English", "Hindi"], "6th Class": SUBJ_MID, "7th Class": SUBJ_MID, "8th Class": SUBJ_MID,
+  "9th Class": SUBJ_SEC, "10th Class": SUBJ_SEC, "11th Class": SUBJ_SENIOR, "12th Class": SUBJ_SENIOR };
 const LADDER = [1000,2000,3000,5000,10000,20000,40000,80000,160000,320000,640000,1250000,2500000,5000000,10000000];
 const SAFE = [4, 9];
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const rupee = n => "₹" + Number(n).toLocaleString("en-IN");
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const rupee = n => "₹" + (Number(n) || 0).toLocaleString("en-IN");
 const say = (sel, t, bad) => { const e = $(sel); if (e) { e.textContent = t; e.classList.toggle("bad", !!bad); } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const svgI = body => `<svg class="ic" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">${body}</svg>`;
+const IC = {
+  ff: svgI('<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'),
+  poll: svgI('<rect x="4" y="12" width="4" height="8" rx="1" fill="currentColor"/><rect x="10" y="5" width="4" height="15" rx="1" fill="currentColor"/><rect x="16" y="9" width="4" height="11" rx="1" fill="currentColor"/>'),
+  ph: svgI('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>'),
+  leave: svgI('<path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'),
+  pencil: svgI('<path d="M4 20l4-1L19.5 7.5a2.1 2.1 0 0 0-3-3L5 16zM14.5 6.5l3 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>')
+};
+const reduceMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_e) { return false; } };
+
 const classOptions = (list, sel) => list.map(c => `<option ${c === sel ? "selected" : ""}>${c}</option>`).join("");
 
 let sb = null;
@@ -212,7 +294,7 @@ async function rpc(name, args) {
 }
 async function generate(body) {
   if (!sb) return { ok: false, error: "Not connected to Supabase yet." };
-  const { data, error } = await sb.functions.invoke("generate", { body: { tok: auth.token, ...body } });
+  const { data, error } = await sb.functions.invoke("generate", { body: Object.assign({ tok: auth.token }, body) });
   if (error || !data) return { ok: false, error: "Couldn’t reach the quiz writer. Has the “generate” function been deployed?" };
   if (data.ok === false) { if (data.code === "not_signed_in") sessionKicked(); return { ok: false, error: data.error }; }
   return { ok: true, data };
@@ -221,13 +303,13 @@ async function generate(body) {
 /* ============ Accounts (username + password, one device at a time) ============ */
 const AUTH_KEY = "kb-session", authEl = $("#view-auth");
 let auth = null, authTab = "in";
-try { auth = JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch {}
-const saveSession = () => { try { localStorage.setItem(AUTH_KEY, JSON.stringify(auth)); } catch {} };
+try { auth = JSON.parse(localStorage.getItem(AUTH_KEY) || "null"); } catch (_e) {}
+const saveSession = () => { try { localStorage.setItem(AUTH_KEY, JSON.stringify(auth)); } catch (_e) {} };
 const PALETTE = ["#9db894","#e8b85b","#e3a08f","#d8c3a0","#a9c7d8","#c3b5dc","#e5b0c0","#a8d5c2","#f0c3a0","#9fb0bd"];
 const hexOk = c => /^#[0-9a-f]{6}$/i.test(c || "");
 const nameColor = n => PALETTE[[...n].reduce((s, c) => s + c.charCodeAt(0), 0) % PALETTE.length];
 const inkOn = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)); return .299 * r + .587 * g + .114 * b > 150 ? "#2b2118" : "#fff"; };
-function avatar(u) { const bg = hexOk(u?.avatar_color || u?.color) ? (u.avatar_color || u.color) : nameColor(u.username); return { bg, ink: inkOn(bg), ch: ([...(u.avatar_letter || u.letter || u.username || "?")][0] || "?").toUpperCase() }; }
+function avatar(u) { const bg = hexOk((u && u.avatar_color) || (u && u.color)) ? (u.avatar_color || u.color) : nameColor(u.username); return { bg, ink: inkOn(bg), ch: ([...(u.avatar_letter || u.letter || u.username || "?")][0] || "?").toUpperCase() }; }
 const avHTML = (u, size = "") => { const a = avatar(u); return `<span class="av ${size}" style="background:${a.bg};color:${a.ink}">${esc(a.ch)}</span>`; };
 
 function applyAuthUI(keepMenu) {
@@ -245,7 +327,7 @@ function setAuthTab(t) {
   $("#auth-hint").hidden = t === "in";
 }
 function openAuth(msg, tab) { setAuthTab(tab || "in"); authEl.hidden = false; $("#auth-pass").value = ""; say("#auth-msg", msg || "", !!msg); $("#auth-user").focus(); }
-function clearSession() { auth = null; try { localStorage.removeItem(AUTH_KEY); } catch {} }
+function clearSession() { auth = null; try { localStorage.removeItem(AUTH_KEY); } catch (_e) {} }
 function sessionKicked() { if (!auth) return; clearSession(); applyAuthUI(); route(); openAuth("You were signed out because this account was signed in on another device."); }
 function signOut() { const tok = auth && auth.token; clearSession(); applyAuthUI(); route(); openAuth(); if (tok) rpc("logout", { p_tok: tok }); }
 async function submitAuth() {
@@ -263,15 +345,15 @@ async function verifySession() {
   const r = await rpc("check_session", { p_tok: auth.token });
   if (r.net) return;
   if (!r.ok) return sessionKicked();
-  const next = { ...auth, username: r.data.username, is_admin: r.data.is_admin, avatar_letter: r.data.avatar_letter, avatar_color: r.data.avatar_color };
+  const next = Object.assign({}, auth, { username: r.data.username, is_admin: r.data.is_admin, avatar_letter: r.data.avatar_letter, avatar_color: r.data.avatar_color });
   if (JSON.stringify(next) !== JSON.stringify(auth)) { const changed = next.is_admin !== auth.is_admin; auth = next; saveSession(); applyAuthUI(true); if (changed) route(); }
 }
 const acct = $("#acct-menu");
 function closeAcct() { acct.hidden = true; const b = $("#acct-btn"); if (b) b.setAttribute("aria-expanded", "false"); }
 let pf = null; // unsaved look while the profile view is open
-const firstChar = v => { v = (v || "").trim(); if (!v) return ""; try { return [...new Intl.Segmenter().segment(v)][0].segment; } catch { return [...v][0]; } };
+const firstChar = v => { v = (v || "").trim(); if (!v) return ""; try { return [...new Intl.Segmenter().segment(v)][0].segment; } catch (_e) { return [...v][0]; } };
 function openAcct(view = "main") {
-  const head = `<div class="menu-head"><span id="pf-av">${avHTML(auth, "lg")}</span><div><strong>${esc(auth.username)}</strong>${auth.is_admin ? ' <span class="badge">admin</span>' : ""}</div></div>`;
+  const head = `<div class="menu-head"><span id="pf-av">${avHTML(auth, "lg")}</span><div><strong>${esc(auth.username)}</strong>${auth.is_admin ? ' <span class="badge">admin</span>' : ""} <button class="pencil" data-act="profile" title="Edit username and icon" aria-label="Edit username and icon">${IC.pencil}</button></div></div>`;
   let body;
   if (view === "pw") body = `<label class="menu-field">Current password<input id="pw-old" type="password" autocomplete="current-password" maxlength="72"></label>
        <label class="menu-field">New password<input id="pw-new" type="password" autocomplete="new-password" maxlength="72"></label>
@@ -280,6 +362,7 @@ function openAcct(view = "main") {
     if (!pf) pf = { letter: auth.avatar_letter || "", color: hexOk(auth.avatar_color) ? auth.avatar_color : "" };
     body = `<label class="menu-field">Icon: one letter or emoji<input id="pf-letter" type="text" maxlength="8" value="${esc(pf.letter)}" placeholder="${esc(([...auth.username][0] || "?").toUpperCase())}" autocomplete="off"></label>
        <div class="swatches" role="group" aria-label="Icon colour"><button class="sw auto" data-c="" aria-pressed="${!pf.color}">Auto</button>${PALETTE.map(c => `<button class="sw" data-c="${c}" style="background:${c}" aria-label="Colour ${c}" aria-pressed="${pf.color === c}"></button>`).join("")}</div>
+       <label class="menu-field">Custom colour<span class="colorrow"><input id="pf-custom" type="color" value="${pf.color || nameColor(auth.username)}"><span class="muted small" id="pf-hex">${pf.color ? pf.color : "Auto (picked from your name)"}</span></span></label>
        <button class="btn primary small" data-act="pf-save">Save icon</button>
        <hr class="menu-sep">
        <label class="menu-field">Username<input id="pf-name" type="text" maxlength="16" value="${esc(auth.username)}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
@@ -287,17 +370,26 @@ function openAcct(view = "main") {
   } else if (view === "del") body = `<p class="muted small" style="margin:.2rem 0 .5rem">This permanently deletes your account, your scores and your game history. It can’t be undone.</p>
        <label class="menu-field">Enter your password to confirm<input id="del-pw" type="password" autocomplete="current-password" maxlength="72"></label>
        <div class="row" style="margin-top:.5rem"><button class="btn danger small" data-act="del-go">Delete my account</button><button class="btn small" data-act="main">Cancel</button></div>`;
-  else body = `<div class="menu-list"><button class="menu-item" data-act="profile">Edit icon and username</button><button class="menu-item" data-act="pw">Change password</button><button class="menu-item" data-act="del">Delete account</button><button class="menu-item danger" data-act="signout">Sign out</button></div>`;
+  else body = `<div class="menu-list"><button class="menu-item" data-act="pw">Change password</button>${auth.is_admin ? "" : '<button class="menu-item" data-act="del">Delete account</button>'}<button class="menu-item danger" data-act="signout">Sign out</button></div>`;
   acct.innerHTML = head + body + '<p id="acct-msg" class="msg" role="status"></p>';
   acct.hidden = false; const b = $("#acct-btn"); if (b) b.setAttribute("aria-expanded", "true");
 }
 function previewLook() { const u = { username: auth.username, avatar_letter: pf.letter, avatar_color: pf.color }; const el = $("#pf-av"); if (el) el.innerHTML = avHTML(u, "lg"); }
-const applyUser = d => { auth = { ...auth, username: d.username, is_admin: !!d.is_admin, avatar_letter: d.avatar_letter, avatar_color: d.avatar_color }; saveSession(); applyAuthUI(true); };
-acct.addEventListener("input", e => { if (e.target.id === "pf-letter" && pf) { pf.letter = firstChar(e.target.value); previewLook(); } });
+const applyUser = d => { auth = Object.assign({}, auth, { username: d.username, is_admin: !!d.is_admin, avatar_letter: d.avatar_letter, avatar_color: d.avatar_color }); saveSession(); applyAuthUI(true); };
+function onProfileInput(e) {
+  if (!pf) return;
+  if (e.target.id === "pf-letter") { pf.letter = firstChar(e.target.value); previewLook(); }
+  else if (e.target.id === "pf-custom" && /^#[0-9a-f]{6}$/i.test(e.target.value)) {
+    pf.color = e.target.value.toLowerCase(); $$(".sw", acct).forEach(x => x.setAttribute("aria-pressed", "false"));
+    const h = $("#pf-hex"); if (h) h.textContent = pf.color; previewLook();
+  }
+}
+acct.addEventListener("input", onProfileInput); acct.addEventListener("change", onProfileInput);
 acct.addEventListener("click", async e => {
   const sw = e.target.closest(".sw");
-  if (sw && pf) { pf.color = sw.dataset.c; $$(".sw", acct).forEach(x => x.setAttribute("aria-pressed", String(x === sw))); return previewLook(); }
+  if (sw && pf) { pf.color = sw.dataset.c; $$(".sw", acct).forEach(x => x.setAttribute("aria-pressed", String(x === sw))); const cu = $("#pf-custom"), h = $("#pf-hex"); if (cu && pf.color) cu.value = pf.color; if (h) h.textContent = pf.color || "Auto (picked from your name)"; return previewLook(); }
   const b = e.target.closest("[data-act]"); if (!b) return; const act = b.dataset.act;
+  if ((act === "del" || act === "del-go") && auth.is_admin) return say("#acct-msg", ERR.admin_protected, true);
   if (act === "signout") { closeAcct(); signOut(); }
   else if (["pw", "main", "profile", "del"].includes(act)) { pf = null; openAcct(act); }
   else if (act === "pw-save") {
@@ -328,7 +420,7 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeAcct(); });
 
 /* ============ Theme + router ============ */
-$("#theme-toggle").onclick = () => { const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = t; try { localStorage.setItem("kb-theme", t); } catch {} };
+$("#theme-toggle").onclick = () => { const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = t; try { localStorage.setItem("kb-theme", t); } catch (_e) {} };
 const ROUTES = { home: renderHome, kbc: renderKbc, study: renderStudy, leaderboard: renderLb, admin: renderAdmin };
 let tick = null; const stopTimer = () => clearInterval(tick);
 function route() {
@@ -337,27 +429,30 @@ function route() {
   stopTimer(); stopSpeech();
   $$(".tabs a").forEach(a => { if (a.getAttribute("href") === "#" + n) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
   if (auth) ROUTES[n](); else $("#view").innerHTML = "";
+  const v = $("#view"); v.className = "enter"; clearTimeout(enterT); enterT = setTimeout(() => { v.className = ""; }, 800);
 }
+let enterT = null;
 addEventListener("hashchange", route);
 
 function renderHome() {
-  $("#view").innerHTML = `<h1 class="home-title">What shall we play or study today?</h1><p class="home-sub">Welcome, ${esc(auth.username)}. Pick a mode and settle in.</p>
+  $("#view").innerHTML = `<h1 class="home-title">What shall we play or study today?</h1><p class="home-sub">Welcome, ${esc(auth.username)} <button class="pencil" id="hello-edit" title="Edit username and icon" aria-label="Edit username and icon">${IC.pencil}</button> Pick a mode and settle in.</p>
   <div class="cards">
-    <a class="card" href="#kbc"><span class="card-emoji" aria-hidden="true">💰</span><h2>KBC quiz</h2><p>Climb 15 levels of Indian GK from ₹1,000 to ₹1 crore, with lifelines and safe havens.</p></a>
-    <a class="card" href="#study"><span class="card-emoji" aria-hidden="true">📖</span><h2>Study mode</h2><p>Upload a PDF or text notes and get ten questions with explanations.</p></a>
+    <a class="card" href="#kbc"><span class="card-emoji" aria-hidden="true">💰</span><h2>KBC quiz</h2><p>Climb 15 levels of Indian GK from ₹1,000 to ₹1 crore, with lifelines and safe havens. Mix topics like tech, nature and chemistry.</p></a>
+    <a class="card" href="#study"><span class="card-emoji" aria-hidden="true">📖</span><h2>Study mode</h2><p>Quiz yourself on your own notes, or pick a CBSE class, subject and chapters.</p></a>
     <a class="card" href="#leaderboard"><span class="card-emoji" aria-hidden="true">🏆</span><h2>Leaderboard</h2><p>See the best scores for every class. Scores are checked on the server.</p></a>
   </div>`;
+  $("#hello-edit").onclick = e => { e.stopPropagation(); openAcct("profile"); };
 }
 
 /* ============ Read aloud (browser speech; every setting comes from the admin) ============ */
 const TTS_DEFAULT = { enabled: true, auto: true, lang: "en-IN", voice: "", rate: .95, pitch: 1, volume: 1, pause_ms: 500, labels: true, announce: true, extra_secs: 12 };
-let CFG = { tts: { ...TTS_DEFAULT } };
-async function loadConfig() { const r = await rpc("get_config", {}); if (r.ok && r.data && r.data.tts) CFG.tts = { ...TTS_DEFAULT, ...r.data.tts }; }
+let CFG = { tts: Object.assign({}, TTS_DEFAULT) };
+async function loadConfig() { const r = await rpc("get_config", {}); if (r.ok && r.data && r.data.tts) CFG.tts = Object.assign({}, TTS_DEFAULT, r.data.tts); }
 const canSpeak = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
 let voices = [];
 if (canSpeak) { const lv = () => { voices = speechSynthesis.getVoices(); }; lv(); speechSynthesis.addEventListener && speechSynthesis.addEventListener("voiceschanged", lv); }
 const ttsOn = () => canSpeak && CFG.tts.enabled;
-const userAuto = () => { try { const v = localStorage.getItem("kb-auto"); return v === null ? !!CFG.tts.auto : v === "1"; } catch { return !!CFG.tts.auto; } };
+const userAuto = () => { try { const v = localStorage.getItem("kb-auto"); return v === null ? !!CFG.tts.auto : v === "1"; } catch (_e) { return !!CFG.tts.auto; } };
 const normLang = l => String(l || "").toLowerCase().replace("_", "-");
 function pickVoice(t) {
   if (t.voice) { const v = voices.find(x => x.name === t.voice); if (v) return v; }
@@ -366,8 +461,8 @@ function pickVoice(t) {
 }
 let speakId = 0;
 function setSpkBtn(on) { const b = $("#spk"); if (b) { b.setAttribute("aria-pressed", String(on)); b.textContent = on ? "⏹ Stop" : "🔊 Read aloud"; } }
-function stopSpeech() { speakId++; if (canSpeak) speechSynthesis.cancel(); $$(".speaking").forEach(e => e.classList.remove("speaking")); setSpkBtn(false); }
-function unlockSpeech() { if (canSpeak && CFG.tts.enabled) { const u = new SpeechSynthesisUtterance(""); u.volume = 0; speechSynthesis.speak(u); } } // lets phones allow later auto-reading
+function stopSpeech() { speakId++; if (canSpeak) { try { speechSynthesis.cancel(); } catch (_e) {} } $$(".speaking").forEach(e => e.classList.remove("speaking")); setSpkBtn(false); }
+function unlockSpeech() { if (canSpeak && CFG.tts.enabled) { try { const u = new SpeechSynthesisUtterance(""); u.volume = 0; speechSynthesis.speak(u); } catch (_e) {} } } // lets phones allow later auto-reading
 // parts: [{text, sel}]  sel = CSS selector of the option to highlight while it is being read
 function speakParts(parts, t = CFG.tts) {
   if (!canSpeak || !t.enabled || !parts.length) return;
@@ -382,7 +477,7 @@ function speakParts(parts, t = CFG.tts) {
     u.lang = voice ? voice.lang : t.lang; if (voice) u.voice = voice;
     u.rate = +t.rate; u.pitch = +t.pitch; u.volume = +t.volume;
     u.onend = u.onerror = () => { if (id === speakId) setTimeout(next, +t.pause_ms); };
-    speechSynthesis.speak(u);
+    try { speechSynthesis.speak(u); } catch (_e) { setSpkBtn(false); }
   };
   setTimeout(next, 80);
 }
@@ -400,8 +495,8 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) stopS
 
 /* ============ Sound effects (made in the browser with Web Audio, no files needed) ============ */
 let actx = null;
-const sfxOn = () => { try { return localStorage.getItem("kb-sfx") !== "0"; } catch { return true; } };
-function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; } } if (actx.state === "suspended") actx.resume(); return actx; }
+const sfxOn = () => { try { return localStorage.getItem("kb-sfx") !== "0"; } catch (_e) { return true; } };
+function audio() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_e) { return null; } } if (actx.state === "suspended") actx.resume(); return actx; }
 function tone(freq, at, dur, type = "sine", vol = .16) {
   const a = actx, o = a.createOscillator(), g = a.createGain(), t = a.currentTime + at;
   o.type = type; o.frequency.setValueAtTime(freq, t);
@@ -421,44 +516,63 @@ const SUSPENSE = [2000, 5000]; // milliseconds: random pause between locking an 
 /* ============ KBC quiz ============ */
 let G = null;
 const limitFor = i => i < 5 ? 30 : i < 10 ? 45 : 60;
+let KCATS = [];
+function loadCats() { try { const v = JSON.parse(localStorage.getItem("kb-cats") || "[]"); return Array.isArray(v) ? v.filter(id => CATS.some(c => c[0] === id)) : []; } catch (_e) { return []; } }
+function saveCats() { try { localStorage.setItem("kb-cats", JSON.stringify(KCATS)); } catch (_e) {} }
+function drawCatNote() {
+  const n = KCATS.length;
+  say("#cats-note", (n === 0 || n === CATS.length ? "Full mix of every topic." : n + (n === 1 ? " topic" : " topics") + " selected, mixed together.") +
+    (KCATS.indexOf("current") >= 0 ? " Current affairs comes from the AI’s knowledge, so the newest events may be missing." : ""));
+}
 function renderKbc() {
-  G = null;
-  let cls = "5th Class"; try { cls = localStorage.getItem("kb-cls") || cls; } catch {}
+  G = null; KCATS = loadCats();
+  let cls = "5th Class"; try { cls = localStorage.getItem("kb-cls") || cls; } catch (_e) {}
   $("#view").innerHTML = `<section class="panel"><h1>The hot seat is open</h1>
     <p class="muted">Fifteen questions that climb from easy to tough. Safe havens at Level 5 (${rupee(10000)}) and Level 10 (${rupee(320000)}). You get 30 seconds at first, then 45 and 60.</p>
-    <div class="row" style="margin-top:1rem"><label for="cls" class="muted">Level</label><select id="cls">${classOptions([...CLASSES, "General GK"], cls)}</select><button class="btn primary" id="go">Play now</button></div>
+    <div class="row" style="margin-top:1rem"><label for="cls" class="muted">Level</label><select id="cls">${classOptions([...CLASSES, "General GK"], cls)}</select></div>
+    <p class="small muted" style="margin:1.1rem 0 .5rem"><b>Topics.</b> Pick one or several and they are mixed together. Pick none for a full mix.</p>
+    <div class="chips" id="chips">${CATS.map(c => `<button class="chip" data-cat="${c[0]}" aria-pressed="${KCATS.indexOf(c[0]) >= 0}">${esc(c[1])}</button>`).join("")}</div>
+    <div class="row"><button class="btn small" id="cats-all">Select all</button><button class="btn small" id="cats-none">Clear</button><span class="muted small" id="cats-note"></span></div>
+    <div class="row" style="margin-top:1.1rem"><button class="btn primary" id="go">Play now</button></div>
     <p id="msg" class="msg" role="status"></p></section>`;
-  $("#go").onclick = startKbc;
+  $("#chips").onclick = e => {
+    const b = e.target.closest("[data-cat]"); if (!b) return; const id = b.dataset.cat, at = KCATS.indexOf(id);
+    if (at >= 0) KCATS.splice(at, 1); else KCATS.push(id);
+    b.setAttribute("aria-pressed", String(at < 0)); saveCats(); drawCatNote();
+  };
+  const setAll = on => { KCATS = on ? CATS.map(c => c[0]) : []; $$(".chip").forEach(x => x.setAttribute("aria-pressed", String(on))); saveCats(); drawCatNote(); };
+  $("#cats-all").onclick = () => setAll(true); $("#cats-none").onclick = () => setAll(false);
+  $("#go").onclick = startKbc; drawCatNote();
 }
 async function startKbc() {
-  unlockSpeech(); audio(); const cls = $("#cls").value; try { localStorage.setItem("kb-cls", cls); } catch {}
+  unlockSpeech(); audio(); const cls = $("#cls").value; try { localStorage.setItem("kb-cls", cls); } catch (_e) {}
   $("#go").disabled = true; $("#msg").innerHTML = '<span class="spin"></span> Writing your questions…'; $("#msg").className = "msg";
   await loadConfig();
-  const r = await generate({ kind: "kbc", cls });
+  const r = await generate({ kind: "kbc", cls, cats: KCATS.slice() });
   if (!r.ok) { say("#msg", r.error, true); $("#go").disabled = false; return; }
   G = { gid: r.data.gid, qs: r.data.questions, i: 0, hidden: [], life: { ff: 1, poll: 1, ph: 1 }, extra: "", cls, busy: false };
   showQ();
 }
 function markReady(gid, lvl, tries = 2) { rpc("kbc_ready", { p_tok: auth.token, p_gid: gid, p_lvl: lvl }).then(r => { if (!r.ok && r.net && tries > 1) setTimeout(() => markReady(gid, lvl, tries - 1), 1000); }); }
-function showQ() { G.t0 = Date.now(); G.ttsUsed = false; G.sel = -1; G.locked = false; drawQ(); markReady(G.gid, G.i); if (ttsOn() && userAuto()) readKbc(); }
+function showQ() { G.t0 = Date.now(); G.ttsUsed = false; G.sel = -1; G.locked = false; G.enter = true; drawQ(); markReady(G.gid, G.i); if (ttsOn() && userAuto()) readKbc(); }
 function drawQ() {
-  const q = G.qs[G.i];
-  $("#view").innerHTML = `<div class="game"><section class="panel"><div class="row" style="justify-content:space-between"><b>Question ${G.i + 1} of 15 · ${rupee(LADDER[G.i])}</b><span id="tl" class="muted"></span></div>
+  const q = G.qs[G.i], enter = G.enter; G.enter = false;
+  $("#view").innerHTML = `<div class="game${enter ? " enter" : ""}"><section class="panel"><div class="row" style="justify-content:space-between"><b>Question ${G.i + 1} of 15 · ${rupee(LADDER[G.i])}</b><span id="tl" class="muted"></span></div>
     <div class="timer" aria-hidden="true"><i id="tb" style="width:100%"></i></div><p class="q">${esc(q.q)}</p>
     <div class="opts">${q.options.map((o, k) => `<button class="opt ${G.hidden.includes(k) ? "gone" : ""} ${G.sel === k ? "pick" : ""}" data-k="${k}"><b>${"ABCD"[k]}</b><span>${esc(o)}</span></button>`).join("")}</div>
     <div class="lockrow"><button class="btn primary" id="lock" ${G.sel < 0 ? "disabled" : ""}>🔒 Lock answer</button><span id="lockhint" class="muted small">Choose an option, then lock it in. If time runs out, your selected option becomes your answer.</span></div>
-    <div class="lifelines"><button class="life" data-l="ff" ${G.life.ff ? "" : "disabled"}>50:50</button><button class="life" data-l="poll" ${G.life.poll ? "" : "disabled"}>Audience poll</button><button class="life" data-l="ph" ${G.life.ph ? "" : "disabled"}>Phone a friend</button>
-      <span class="spk-row">${speakUI()}${sfxUI()}</span><button class="btn small" id="quit" style="margin-left:auto">Take ${rupee(G.i ? LADDER[G.i - 1] : 0)} and leave</button></div>
+    <div class="lifelines"><button class="life" data-l="ff" ${G.life.ff ? "" : "disabled"}>${IC.ff}<span>50:50</span></button><button class="life" data-l="poll" ${G.life.poll ? "" : "disabled"}>${IC.poll}<span>Audience poll</span></button><button class="life" data-l="ph" ${G.life.ph ? "" : "disabled"}>${IC.ph}<span>Phone a friend</span></button>
+      <span class="spk-row">${speakUI()}${sfxUI()}</span><button class="btn small" id="quit" style="margin-left:auto">${IC.leave}<span>Leave with ${rupee(G.i ? LADDER[G.i - 1] : 0)}</span></button></div>
     <p id="lmsg" class="msg" role="status"></p><div id="extra" aria-live="polite">${G.extra}</div></section>
     <ol class="ladder" aria-label="Prize ladder">${LADDER.map((p, k) => `<li class="${SAFE.includes(k) ? "safe" : ""} ${k < G.i ? "done" : ""} ${k === G.i ? "now" : ""}"><span>${k + 1}</span><span>${rupee(p)}</span></li>`).join("")}</ol></div>`;
   $$(".opt").forEach(b => b.onclick = () => choose(+b.dataset.k));
   $("#lock").onclick = () => { if (G.sel >= 0) lockAnswer(G.sel); };
-  $("#sfx").onchange = e => { try { localStorage.setItem("kb-sfx", e.target.checked ? "1" : "0"); } catch {} if (e.target.checked) sfx("pick"); };
+  $("#sfx").onchange = e => { try { localStorage.setItem("kb-sfx", e.target.checked ? "1" : "0"); } catch (_e) {} if (e.target.checked) sfx("pick"); };
   $$(".life").forEach(b => b.onclick = () => life(b.dataset.l));
   $("#quit").onclick = quitKbc;
   if ($("#spk")) {
     $("#spk").onclick = () => $("#spk").getAttribute("aria-pressed") === "true" ? stopSpeech() : readKbc();
-    $("#auto").onchange = e => { try { localStorage.setItem("kb-auto", e.target.checked ? "1" : "0"); } catch {} };
+    $("#auto").onchange = e => { try { localStorage.setItem("kb-auto", e.target.checked ? "1" : "0"); } catch (_e) {} };
   }
   const now = $(".ladder .now"); if (now) now.scrollIntoView({ block: "nearest", inline: "center" });
   startTimer();
@@ -469,11 +583,20 @@ function startTimer() {
     const lim = limitFor(G.i) + (G.ttsUsed && ttsOn() ? +CFG.tts.extra_secs : 0);
     const tb = $("#tb"); if (!tb) return stopTimer();
     const left = lim - (Date.now() - G.t0) / 1000;
-    tb.style.width = Math.max(0, left / lim * 100) + "%"; $("#tl").textContent = Math.ceil(Math.max(left, 0)) + "s";
+    tb.style.width = Math.max(0, left / lim * 100) + "%"; tb.className = left <= 5 ? "low" : ""; $("#tl").textContent = Math.ceil(Math.max(left, 0)) + "s";
     if (left <= 0) { stopTimer(); lockAnswer(G.sel, "time"); } // a selected-but-unlocked option becomes the answer
   }, 250);
 }
-function sparks(el) { if (!el) return; for (let i = 0; i < 14; i++) { const s = document.createElement("i"); s.className = "spark"; s.style.setProperty("--dx", (Math.random() * 120 - 60) + "px"); s.style.setProperty("--dy", (Math.random() * 60 - 30) + "px"); el.appendChild(s); setTimeout(() => s.remove(), 900); } }
+function sparks(el, n, spread) {
+  if (!el) return; n = n || 14; spread = spread || 60;
+  const cols = ["var(--accent)", "var(--b1)", "var(--b2)", "var(--b3)"];
+  for (let i = 0; i < n; i++) { const d = document.createElement("i"); d.className = "spark"; d.style.background = cols[i % 4];
+    d.style.setProperty("--dx", (Math.random() * spread * 2 - spread) + "px"); d.style.setProperty("--dy", (Math.random() * spread - spread / 2) + "px"); el.appendChild(d); setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, 950); }
+}
+function countUp(el, to, ms) {
+  if (!el) return; if (!to || reduceMotion()) { el.textContent = rupee(to); return; }
+  const t0 = Date.now(), id = setInterval(() => { const k = Math.min(1, (Date.now() - t0) / ms), e = 1 - Math.pow(1 - k, 3); el.textContent = rupee(Math.round(to * e)); if (k >= 1) clearInterval(id); }, 40);
+}
 function choose(k) {
   if (G.busy || G.locked) return;
   G.sel = k; sfx("pick");
@@ -526,20 +649,83 @@ async function quitKbc() {
 }
 function endKbc(amount, title) {
   stopTimer(); stopSpeech(); const cls = G.cls, reached = G.i + 1; G = null;
-  $("#view").innerHTML = `<section class="panel" style="text-align:center"><h1>${esc(title)}</h1><p class="big">${rupee(amount)}</p>
+  $("#view").innerHTML = `<section class="panel win" style="text-align:center;position:relative;overflow:hidden"><h1>${esc(title)}</h1><p class="big" id="bigamt">${rupee(amount)}</p>
     <p class="muted">You reached question ${reached} in ${esc(cls)}.${amount > 0 ? " Your score was recorded by the server." : ""}</p>
     <div class="row" style="justify-content:center;margin-top:1rem"><button class="btn primary" id="again">Play again</button><a class="btn" href="#leaderboard" style="text-decoration:none">See leaderboard</a></div></section>`;
-  $("#again").onclick = renderKbc;
+  $("#again").onclick = renderKbc; countUp($("#bigamt"), amount, 1300); if (amount === LADDER[14]) sparks($(".panel.win"), 44, 240);
 }
 
 /* ============ Study mode ============ */
 let S = null;
+let studyTab = "notes";
 function renderStudy() {
   S = null;
-  $("#view").innerHTML = `<section class="panel"><h1>Turn your notes into a quiz</h1><p class="muted">Upload a PDF or text file. Ten questions are written from your material only, and the answers are checked on the server.</p>
+  $("#view").innerHTML = `<section class="panel"><h1>Study</h1>
+    <div class="seg" id="st-tabs" role="group" aria-label="Where should the questions come from?"><button data-st="notes" aria-pressed="${studyTab === "notes"}">My notes</button><button data-st="cbse" aria-pressed="${studyTab === "cbse"}">CBSE / NCERT</button></div>
+    <div id="stbody"></div></section>`;
+  $("#st-tabs").onclick = e => { const b = e.target.closest("[data-st]"); if (b && b.dataset.st !== studyTab) { studyTab = b.dataset.st; renderStudy(); } };
+  if (studyTab === "cbse") drawCbse(); else drawNotes();
+}
+function drawNotes() {
+  $("#stbody").innerHTML = `<p class="muted" style="margin:1rem 0 0">Upload a PDF or text file. Ten questions are written from your material only, and the answers are checked on the server.</p>
     <div class="row" style="margin-top:1rem"><input type="file" id="file" accept=".pdf,.txt,application/pdf,text/plain" aria-label="Upload a PDF or text file">
-    <label for="scls" class="muted">Level</label><select id="scls">${classOptions(CLASSES, "10th Class")}</select><button class="btn primary" id="mk">Make quiz</button></div><p id="msg" class="msg" role="status"></p></section>`;
+    <label for="scls" class="muted">Level</label><select id="scls">${classOptions(CLASSES, "10th Class")}</select><button class="btn primary" id="mk">Make quiz</button></div><p id="msg" class="msg" role="status"></p>`;
   $("#mk").onclick = makeStudy;
+}
+
+/* ---- CBSE / NCERT: pick class, subject and (optionally) chapters ---- */
+let CB = { cls: "10th Class", subject: "", list: [], picked: {} };
+const cbPicked = () => CB.list.filter(c => CB.picked[c]);
+function chapHTML() {
+  return CB.list.length ? `<div class="chlist" role="group" aria-label="Chapters">${CB.list.map((c, i) => `<label class="chk"><input type="checkbox" data-ch="${i}" ${CB.picked[c] ? "checked" : ""}><span>${esc(c)}</span></label>`).join("")}</div>` : "";
+}
+function cbCount() { const n = cbPicked().length; say("#cb-count", n ? n + (n === 1 ? " chapter" : " chapters") + " selected" : "Whole book"); }
+function drawCbse() {
+  const subs = SUBJECTS[CB.cls];
+  if (subs.indexOf(CB.subject) < 0) { CB.subject = subs[0]; CB.list = []; CB.picked = {}; }
+  $("#stbody").innerHTML = `<p class="muted" style="margin:1rem 0 0">Questions are written by AI from what it knows of the NCERT textbooks that CBSE prescribes, so they can differ from the very newest edition. For exact accuracy, download the chapter PDF (free at ncert.nic.in) and use it under “My notes”.</p>
+    <div class="row" style="margin-top:1rem"><label for="cb-cls" class="muted">Class</label><select id="cb-cls">${classOptions(CLASSES, CB.cls)}</select>
+    <label for="cb-sub" class="muted">Subject</label><select id="cb-sub">${subs.map(x => `<option ${x === CB.subject ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></div>
+    <div class="row" style="margin-top:.9rem"><button class="btn" id="cb-load">Show chapters</button><span class="muted small">Optional. Leave everything unticked to be quizzed on the whole book.</span></div>
+    <p id="cb-lmsg" class="msg" role="status"></p><div id="cb-chap">${chapHTML()}</div>
+    <div class="row" style="margin-top:.7rem"><input id="cb-custom" type="text" maxlength="80" placeholder="Add a chapter yourself" aria-label="Add a chapter name" autocomplete="off"><button class="btn small" id="cb-add">Add</button></div>
+    <div class="row" style="margin-top:1.1rem"><button class="btn primary" id="cmk">Make quiz</button><span class="muted small" id="cb-count"></span></div><p id="cmsg" class="msg" role="status"></p>`;
+  $("#cb-cls").onchange = e => { CB.cls = e.target.value; CB.subject = ""; drawCbse(); };
+  $("#cb-sub").onchange = e => { CB.subject = e.target.value; CB.list = []; CB.picked = {}; $("#cb-chap").innerHTML = ""; say("#cb-lmsg", ""); cbCount(); };
+  $("#cb-load").onclick = loadChapters;
+  $("#cb-chap").onchange = e => {
+    const c = CB.list[+e.target.getAttribute("data-ch")]; if (c === undefined) return;
+    if (e.target.checked && cbPicked().length >= 8) { e.target.checked = false; return say("#cb-lmsg", "You can pick up to 8 chapters at a time.", true); }
+    CB.picked[c] = e.target.checked; say("#cb-lmsg", ""); cbCount();
+  };
+  const add = () => {
+    const v = $("#cb-custom").value.replace(/\s+/g, " ").trim(); if (v.length < 2) return say("#cb-lmsg", "Type the chapter name first.", true);
+    if (CB.list.indexOf(v) < 0) CB.list.push(v);
+    if (cbPicked().length < 8) CB.picked[v] = true; else say("#cb-lmsg", "Added, but you can pick up to 8 chapters at a time.", true);
+    $("#cb-custom").value = ""; $("#cb-chap").innerHTML = chapHTML(); cbCount();
+  };
+  $("#cb-add").onclick = add; $("#cb-custom").onkeydown = e => { if (e.key === "Enter") add(); };
+  $("#cmk").onclick = makeCbse; cbCount();
+}
+async function loadChapters() {
+  $("#cb-load").disabled = true; $("#cb-lmsg").className = "msg"; $("#cb-lmsg").innerHTML = '<span class="spin"></span> Looking up the chapters…';
+  const r = await generate({ kind: "chapters", cls: CB.cls, subject: CB.subject });
+  if (!$("#cb-load")) return; $("#cb-load").disabled = false;
+  if (!r.ok) return say("#cb-lmsg", r.error, true);
+  const mine = CB.list.filter(c => CB.picked[c]);   // keep anything the player typed or ticked
+  CB.list = r.data.chapters.slice(); mine.forEach(c => { if (CB.list.indexOf(c) < 0) CB.list.push(c); });
+  $("#cb-chap").innerHTML = chapHTML(); cbCount();
+  say("#cb-lmsg", "This list comes from the AI and may not match your book exactly. If a chapter is missing or named differently, add it below.");
+}
+async function makeCbse() {
+  unlockSpeech(); await loadConfig();
+  const chapters = cbPicked();
+  $("#cmk").disabled = true; $("#cmsg").className = "msg"; $("#cmsg").innerHTML = '<span class="spin"></span> Writing questions…';
+  const r = await generate({ kind: "cbse", cls: CB.cls, subject: CB.subject, chapters });
+  if (!$("#cmk")) return;
+  if (!r.ok) { say("#cmsg", r.error, true); $("#cmk").disabled = false; return; }
+  S = { gid: r.data.gid, qs: r.data.questions, pick: Array(10).fill(-1), cls: CB.cls + " · " + CB.subject + (chapters.length ? " (" + chapters.length + (chapters.length === 1 ? " chapter)" : " chapters)") : "") };
+  drawStudy();
 }
 async function extractText(f) {
   if (/\.txt$/i.test(f.name) || f.type === "text/plain") return f.text();
@@ -577,25 +763,25 @@ function drawStudy() {
     const d = r.data;
     $("#view").innerHTML = `<section class="panel"><h2>You scored ${d.score} out of ${S.qs.length}</h2>${S.qs.map((q, i) => { const ok = S.pick[i] === d.review[i].correct_index;
       return `<div class="rev ${ok ? "ok" : "bad"}"><b>${i + 1}. ${esc(q.q)}</b><br>Your answer: ${S.pick[i] < 0 ? "none" : esc(q.options[S.pick[i]])}${ok ? " ✓" : ""}<br>${ok ? "" : `Correct: <b>${esc(q.options[d.review[i].correct_index])}</b><br>`}<span class="muted">${esc(d.review[i].explanation)}</span></div>`; }).join("")}
-      <button class="btn primary" id="again">Try another file</button></section>`;
+      <button class="btn primary" id="again">Make another quiz</button></section>`;
     $("#again").onclick = renderStudy;
   };
 }
 
 /* ============ Leaderboard ============ */
 async function renderLb() {
-  let cls = ""; try { cls = localStorage.getItem("kb-lbcls") || ""; } catch {}
+  let cls = ""; try { cls = localStorage.getItem("kb-lbcls") || ""; } catch (_e) {}
   $("#view").innerHTML = `<section class="panel"><h1>Leaderboard</h1><div class="row"><label for="lbc" class="muted">Level</label>
     <select id="lbc"><option value="">All levels</option>${[...CLASSES, "General GK"].map(c => `<option ${c === cls ? "selected" : ""}>${c}</option>`).join("")}</select></div>
     <p id="lbmsg" class="msg" role="status"></p><ul id="lb" class="lb-list"></ul></section>`;
   const load = async () => {
-    const c = $("#lbc").value; try { localStorage.setItem("kb-lbcls", c); } catch {}
+    const c = $("#lbc").value; try { localStorage.setItem("kb-lbcls", c); } catch (_e) {}
     say("#lbmsg", "Loading…");
     const r = await rpc("leaderboard", { p_cls: c || null, p_lim: 20 }); if (!$("#lb")) return;
     if (!r.ok) { $("#lb").innerHTML = ""; return say("#lbmsg", r.error, true); }
-    say("#lbmsg", r.data.length ? "Best score per player. Scores come from the server, so they can’t be edited." : "No scores yet. Be the first.");
+    say("#lbmsg", r.data.length ? "Higher class levels rank first, then the higher score. Scores come from the server, so they can’t be edited." : "No scores yet. Be the first.");
     const medal = ["🥇", "🥈", "🥉"];
-    $("#lb").innerHTML = r.data.map(x => `<li class="${x.username === auth.username ? "me" : ""}"><span class="rk">${medal[x.rank - 1] || x.rank}</span>${avHTML(x)}<span>${esc(x.username)} <span class="muted small">${esc(x.cls)} · Q${x.reached}</span></span><span class="vl">${rupee(x.score)}</span></li>`).join("");
+    $("#lb").innerHTML = r.data.map((x, i) => `<li class="${x.username === auth.username ? "me" : ""}" style="animation-delay:${i * 45}ms"><span class="rk">${medal[x.rank - 1] || x.rank}</span>${avHTML(x)}<span>${esc(x.username)} <span class="muted small">${esc(x.cls)} · Q${x.reached}</span></span><span class="vl">${rupee(x.score)}</span></li>`).join("");
   };
   $("#lbc").onchange = load; load();
 }
@@ -656,17 +842,17 @@ async function admSpeech() {
   const collect = () => ({ enabled: $("#s-en").checked, auto: $("#s-auto").checked, announce: $("#s-ann").checked, labels: $("#s-lab").checked, lang: $("#s-lang").value, voice: $("#s-voice").value,
     rate: +$("#s-rate").value, pitch: +$("#s-pitch").value, volume: +$("#s-vol").value, pause_ms: +$("#s-pause").value, extra_secs: +$("#s-extra").value });
   $("#s-prev").onclick = () => { const c = collect(); const q = { q: "Which river is called the Ganga of the South?", options: ["Godavari", "Krishna", "Kaveri", "Narmada"] };
-    if (!canSpeak) return say("#amsg", "This browser can’t play speech.", true); speakParts(qParts(q, 3, () => null, [], c), { ...c, enabled: true }); };
+    if (!canSpeak) return say("#amsg", "This browser can’t play speech.", true); speakParts(qParts(q, 3, () => null, [], c), Object.assign({}, c, { enabled: true })); };
   $("#s-save").onclick = async () => { const c = collect(); const x = await rpc("admin_save_tts", { p_tok: auth.token, p_cfg: c });
-    if (!x.ok) return admFail(x); CFG.tts = { ...TTS_DEFAULT, ...c }; say("#amsg", "Saved. Players get the new settings the next time they start a game."); };
-  $("#s-reset").onclick = async () => { const x = await rpc("admin_save_tts", { p_tok: auth.token, p_cfg: TTS_DEFAULT }); if (!x.ok) return admFail(x); CFG.tts = { ...TTS_DEFAULT }; admSpeech(); };
+    if (!x.ok) return admFail(x); CFG.tts = Object.assign({}, TTS_DEFAULT, c); say("#amsg", "Saved. Players get the new settings the next time they start a game."); };
+  $("#s-reset").onclick = async () => { const x = await rpc("admin_save_tts", { p_tok: auth.token, p_cfg: TTS_DEFAULT }); if (!x.ok) return admFail(x); CFG.tts = Object.assign({}, TTS_DEFAULT); admSpeech(); };
 }
 async function admLogs() {
   $("#adm").innerHTML = '<div class="row"><button class="btn small" id="l-ref">Refresh</button></div><p id="amsg" class="msg" role="status"></p><div id="logs"></div>';
   $("#l-ref").onclick = admLogs;
   const r = await rpc("admin_logs", { p_tok: auth.token, p_lim: 60 }); if (!r.ok) return admFail(r);
   $("#logs").innerHTML = r.data.length ? r.data.map(l => `<div class="log"><b style="color:${l.error ? "var(--err)" : "inherit"}">${new Date(l.created_at).toLocaleTimeString()} · ${esc(l.username || "?")} · ${esc(l.kind)} ${esc(l.class_level)}</b>
-    <div>${l.cache_hit ? "served from cache" : `HTTP ${l.status ?? "–"} · ${l.ms ?? "–"} ms · ~${l.tokens_in ?? 0} tokens in, ~${l.tokens_out ?? 0} out`}${l.error ? " · " + esc(l.error) : ""}</div>
+    <div>${l.cache_hit ? "served from cache" : `HTTP ${l.status == null ? "–" : l.status} · ${l.ms == null ? "–" : l.ms} ms · ~${l.tokens_in || 0} tokens in, ~${l.tokens_out || 0} out`}${l.error ? " · " + esc(l.error) : ""}</div>
     <details><summary>Request</summary><pre>${esc(l.request || "")}</pre></details><details><summary>Raw response</summary><pre>${esc(l.response || "")}</pre></details></div>`).join("") : '<p class="muted">No requests yet. Start a quiz and they will appear here.</p>';
 }
 async function admUsers() {
@@ -683,7 +869,9 @@ $("#auth-user").addEventListener("keydown", e => { if (e.key === "Enter") $("#au
 $("#auth-pass").addEventListener("keydown", e => { if (e.key === "Enter") submitAuth(); });
 if (!sb) {
   $("#auth-form").hidden = true; $("#setup").hidden = false;
-  $("#setup").innerHTML = `<p><b>One step left.</b> Open <code>index.html</code> and paste your Supabase Project URL and anon key into the two settings at the top of the script, then reload. See the setup steps in the README.</p>`;
+  $("#setup").innerHTML = (SUPABASE_URL && SUPABASE_ANON_KEY && !window.supabase)
+    ? `<p><b>Couldn’t load a required library.</b> The site needs a script from cdn.jsdelivr.net (Supabase). Check your internet connection or ad-blocker, or try a newer browser, then reload.</p>`
+    : `<p><b>One step left.</b> Open <code>public/index.html</code> and paste your Supabase Project URL and anon key into the two settings at the top of the script, then reload. See the setup steps in the README.</p>`;
   authEl.hidden = false;
 } else {
   applyAuthUI(); route(); if (!auth) openAuth(); else { loadConfig(); verifySession(); }
