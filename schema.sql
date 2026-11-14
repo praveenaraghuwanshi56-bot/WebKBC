@@ -90,13 +90,6 @@ create table if not exists public.curriculum_cache (
   chapters jsonb not null check (jsonb_typeof(chapters) = 'array'),
   updated_at timestamptz not null default now()
 );
-create table if not exists public.seen_questions (
-  user_id uuid not null references public.app_users(id) on delete cascade,
-  qhash text not null,
-  seen_at timestamptz not null default now(),
-  primary key (user_id, qhash)
-);
-create index if not exists seen_questions_recent on public.seen_questions (user_id, seen_at desc);
 create table if not exists public.api_logs (
   id bigint generated always as identity primary key,
   user_id uuid references public.app_users(id) on delete set null,
@@ -121,7 +114,6 @@ alter table public.game_sessions enable row level security;
 alter table public.leaderboards enable row level security;
 alter table public.cached_quizzes enable row level security;
 alter table public.curriculum_cache enable row level security;
-alter table public.seen_questions enable row level security;
 alter table public.api_logs enable row level security;
 revoke all on all tables in schema public from anon, authenticated;
 -- (no RLS policies on purpose: the anon key cannot read or write any table)

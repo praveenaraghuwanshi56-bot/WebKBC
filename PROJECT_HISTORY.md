@@ -29,11 +29,15 @@ Purpose of this file: so the project can be continued in a new chat, with a diff
 | Chapter lists come from Gemini, are cached in `curriculum_cache` for 120 days, and players can add their own chapter names | The real textbooks aren't available to the app and NCERT revises books in stages, so a hard-coded list would go stale or be wrong. The screen says plainly that the AI's version may differ and points to uploading the real chapter PDF. |
 | Player-typed subject and chapter names are reduced to letters, numbers, spaces and simple punctuation before they enter a prompt, and at most 8 chapters are used | Limits prompt injection and keeps prompts short. |
 | Subject lists per class live only in `index.html` (`SUBJECTS`); the function accepts any sanitised subject text | One place to edit when NCERT adds or renames a subject. |
+| Difficulty (easy, medium, hard) applies to KBC and CBSE quizzes, not to "My notes". Easy keeps the original prompt text and the original cache keys byte for byte; medium and hard add `:medium` / `:hard` to the key | The owner asked that Easy stay exactly as hard as it was, so existing saved quizzes and behaviour are untouched. |
+| The leaderboard ranks class level, then difficulty, then score; the row stores the difficulty; each player shows once at their highest level and hardest difficulty | Otherwise everyone would play Easy for the biggest score. Same spirit as the owner's rule that higher-level points count more. It is one `order by` in `leaderboard()` if this ever needs changing. |
+| The edge function passes `p_difficulty` to the database only when it is not easy | Easy games keep working even if the function is deployed before patch 06. |
 | Only KBC scores go on the leaderboard | Study quizzes can be made easy by uploading trivial notes, so ranking them would be unfair. |
 | Quiz cache (`cached_quizzes`), N sets per level then reuse | Saves the Gemini free-tier quota. Admin can change N or clear it. |
 | Model name is a free-text admin setting | Google retires models; no code change needed next time. |
 | Read-aloud uses the browser's Web Speech API, with all options set by the admin | Free, no key, no quota. Voices vary by device. |
 | Lifeline answers (audience poll, phone a friend) are spoken after the lifeline is used; 50:50 and the answer reveal are never spoken. Lifeline speech follows the player's Auto-read switch | The brief asked for it; reveals use tunes only. |
+| Gemini calls make exactly ONE attempt per model: the Admin model first, then `GEMINI_FALLBACK_MODEL` (default `gemini-3.1-flash-lite`). Overload (503, other 5xx), timeout (45 s), network errors, a 404 on the fallback and answers that fail validation move to the next model; 429, 400/403 and a 404 on the main model stop at once. If both fail, a saved set for the exact same cache key is played; otherwise a clear error | Keeps players able to start a game during an outage without wasting quota on repeats. The main model stays the admin-editable setting (not hard-coded), so a retired model is still a one-field fix. A saved set is only used for the identical class, topics and difficulty, never a different one. |
 | Sound effects are synthesised with Web Audio (no files); the player can mute them | No assets to host or license. |
 | `kbc_ready` moves the clock start to when the question is shown | The suspense pause plus reveal (up to about 7 s) would otherwise cut into the next question's time. |
 | Extra clock seconds for players who listen (admin-set, capped on the server) | Reading aloud takes time. The client claims `p_extra`; the server caps it at the admin's value and ignores it if read-aloud is off. |
@@ -48,6 +52,8 @@ patches/02-speech-and-timer.sql          app_settings.tts, get_config, admin_sav
 patches/03-lock-in-clock.sql             game_sessions.ready, kbc_ready, kbc_answer resets ready (fair clock for the lock-in pause). Needs patch 02.
 patches/04-leaderboard-by-level.sql      _tier() helper; leaderboard() ranks class level first, then score.
 patches/05-curriculum-cache.sql          curriculum_cache table (saved chapter lists); admin_clear_cache also clears it.
+patches/07-remove-seen-questions.sql     drops the unused seen_questions table (only needed if it exists on your database).
+patches/06-difficulty.sql                difficulty columns on game_sessions and leaderboards, _diff_rank(), create_game(..., p_difficulty), leaderboard ranks class level, then difficulty, then score. Run BEFORE deploying the matching Edge Function.
 supabase/functions/generate/index.ts     Edge Function: gate, cache, Gemini call, log, create_game.
 README.md                                Public-facing setup and usage.
 PROJECT_HISTORY.md                       This file.
@@ -76,7 +82,11 @@ PROJECT_HISTORY.md                       This file.
 - [ ] Patch `03-lock-in-clock.sql` applied (run AFTER 02)
 - [ ] Patch `04-leaderboard-by-level.sql` applied
 - [ ] Patch `05-curriculum-cache.sql` applied (needed for the CBSE chapter lists)
-- [ ] Edge Function `generate` redeployed after v2.8 (topics, CBSE quizzes and chapter lists live in it)
+- [ ] Patch `06-difficulty.sql` applied (order for v2.9: SQL 06, then the Edge Function, then SQL 07, then `index.html`)
+- [ ] Patch `07-remove-seen-questions.sql` applied (only after the new Edge Function is deployed)
+- [ ] Edge Function `generate` redeployed after v2.10 (the version in this project, not a copy edited elsewhere)
+- [ ] Optional secret `GEMINI_FALLBACK_MODEL` set in Supabase → Edge Functions → Secrets
+- [ ] (v2.9 note) Edge Function `generate` redeployed after v2.9 (topics, CBSE quizzes, chapter lists and difficulty live in it)
 - [ ] Edge Function `generate` deployed (latest `index.ts`); Verify JWT setting: ______
 - [ ] Admin password changed from the starting one
 - [ ] Gemini key saved in Admin, and the old key from the chat history revoked
@@ -98,6 +108,8 @@ PROJECT_HISTORY.md                       This file.
 | v2.6 | Lock button (select, then lock; Lock-in pause of 2 to 5 s; right and wrong tunes; unlocked selection is auto-locked when time runs out). Lifeline speech for Audience poll and Phone a friend (50:50 silent). `kbc_ready` and patch 03 so the suspense pause doesn't eat the next question's time. Speech and audio calls wrapped so a browser error can never stop a game starting. |
 | v2.7 | Admin: Delete account hidden from the admin menu (the server already refused it). Pencil icon beside the username (menu and home page) opens the profile editor; custom colour picker added. Icons on the three lifelines and a "Leave with ₹X" button. Leaderboard order changed to class level first (patch 04). Many more animations (all transform, opacity and colour only). JavaScript lowered to ES2017 and CSS given fallbacks for older engines (Pale Moon, MyPal). |
 | v2.8 | Topic-mixed KBC quizzes (16 topics, pick any, mixed together). Study page split into **My notes** and **CBSE / NCERT** (class, subject, optional chapters, custom chapter names). Edge Function rewritten with kinds `kbc`, `study`, `cbse`, `chapters`. Patch 05 adds `curriculum_cache`. |
+| v2.9 | Easy / Medium / Hard for KBC and CBSE quizzes (selector on both pages, a difficulty badge during the game, difficulty shown on the leaderboard, ranking changed to class level then difficulty then score). Patch 06. Edge function takes `difficulty`; Easy output verified identical to v2.8. |
+| v2.10 | Model fallback and saved-quiz recovery in the Edge Function (see section 2). Invalid answers no longer retry the same model: they go to the fallback. |
 
 ## 6. Lessons learned (avoid repeating these)
 
@@ -112,6 +124,11 @@ PROJECT_HISTORY.md                       This file.
 - **Keep the script at ES2017.** No `?.`, `??`, object spread (`{...a}`), or bare `catch {` in `public/index.html`; use `Object.assign` and `catch (_e)`. Check with `acorn` (`ecmaVersion: 2017`). Supabase-js 2.45.4 itself needs ES2017; pdf.js needs newer.
 - CSS: put a plain fallback before any `clamp()`; use `top/right/bottom/left` instead of `inset`; flex `gap` has a margin fallback inside `@supports not (gap:1px)`.
 - The Edge Function can be tested outside Supabase: transpile `index.ts` with esbuild and run it in Node with a fake `Deno`, a fake Supabase client and a fake `fetch` for Gemini. This caught nothing in v2.8 but checks prompts, sanitising, caching and error codes in seconds.
+- **Never leave `create_game` callable by players.** It takes the questions as an argument, so anyone who can call it can write their own questions and score a perfect game. It must stay service-role only. Another AI once added a five-argument copy of it by hand, granted it to `service_role`, and did not revoke the default access for everyone else, which left it open to any signed-in player. Patch 06 now closes every version of it. Likewise any table created by hand needs row level security on and `revoke all ... from anon, authenticated`, because Supabase gives new tables to the public key by default.
+- **Do not paste in an Edge Function edited by another tool or AI without comparing it to this project's `index.ts`.** The fallback change was described by another AI, but its source reached us only as a summary, and its description suggested it was built on the old function that tracked seen questions. This project's `index.ts` already contains the fallback, tested, on top of the correct base.
+- **During a Gemini outage every attempt is logged and counts toward the hourly and daily limits**, including failed ones, so players retrying during an outage use their allowance twice as fast (two attempts per start). If that becomes a problem, change `gate()` to ignore rows with status 503.
+- **A deployed Edge Function and the database must be changed together.** An older Edge Function (from an interrupted attempt) called `create_game` with an extra argument and used a `seen_questions` table, neither of which existed on the live database, so every game failed with "Couldn't start the game" (HTTP 404 on the RPC). Always check the function version matches the SQL patches before debugging anything else.
+- Check a requested change touches only what was asked. An earlier, interrupted attempt at this feature also added per-player tracking of seen questions and rewrote the Easy prompts; both were removed. Easy must stay identical to the previous behaviour, so compare old and new prompts directly (see the tests in section 7) when changing prompts.
 - Test pages over `http://`, not `file://`: headless Chromium sometimes loses localStorage across reloads on `file://`, which looks like a bug but isn't.
 - iPhones may block automatic speech unless it follows a tap. The code "unlocks" speech on the Play button; the Read aloud button always works.
 
@@ -130,9 +147,11 @@ How it was verified (no live Supabase or Gemini was available to the builder):
 - Read the explanation aloud after answering.
 - Admin controls for the suspense pause range and the volume of sound effects.
 - Only the first question's text is needed at the start: sending questions one at a time would stop players from looking ahead.
+- Fresher questions between games (mixing questions from several saved sets, or remembering which questions a player has seen). Not built; it needs per-player storage, so decide deliberately.
 - A small topic label on each question (the model could return one; `create_game` would need to pass it through).
 - Admin-editable curriculum (chapter lists and subjects stored in the database instead of AI-written).
 - Search-grounded chapter lists (Gemini with Google Search) if that works with structured output on the model in use.
+- Optionally fall back on 429 too (the fallback model has its own quota on the free tier) and on a retired main model (404), instead of stopping. Both are deliberately not done yet.
 - Real-device testing on MyPal / Pale Moon (only syntax and CSS were checked, not run).
 - Hindi-language questions (needs a prompt change and a Hindi voice).
 - Per-IP rate limiting in the Edge Function.
@@ -159,3 +178,16 @@ My request: <describe what you want>
 ## 10. Keeping this file up to date
 
 After every change: add a row to the table in section 5, tick or add items in section 4, and add any new lesson to section 6. If you change the database, add a new `patches/NN-name.sql` and also fold the same change into `schema.sql` so new installs match.
+
+## 11. Integrity check: finding games with questions the generator did not write
+
+Run this in the Supabase SQL Editor. It lists scored KBC games containing any question text that never appeared in a saved quiz set. Normal games are built from saved sets, so a flagged game is suspicious. (False alarms are possible for old games if you have since used "Clear quiz cache".) To remove a cheater's scores, delete the player in Admin → Users.
+
+```sql
+select g.id, u.username, g.class_level, g.score, g.created_at
+  from game_sessions g join app_users u on u.id = g.user_id
+ where g.mode = 'kbc' and g.score > 0
+   and exists (select 1 from jsonb_array_elements(g.questions) e
+                where not exists (select 1 from cached_quizzes c, jsonb_array_elements(c.questions) ce where ce->>'q' = e->>'q'))
+ order by g.created_at desc
+```
