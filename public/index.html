@@ -253,6 +253,11 @@ const CLASSES = ["5th Class","6th Class","7th Class","8th Class","9th Class","10
 const CATS = [["tech", "Technology"], ["software", "Software & computers"], ["physics", "Physics"], ["chemistry", "Chemistry"], ["biology", "Biology & body"],
   ["nature", "Nature & environment"], ["geography", "Geography"], ["history", "History"], ["polity", "Civics & polity"], ["economy", "Economy & business"],
   ["current", "Current affairs"], ["sports", "Sports"], ["culture", "Arts & culture"], ["space", "Space"], ["health", "Health"], ["maths", "Maths & logic"]];
+const DIFFS = [["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"]];
+const DIFF_HINT = { easy: "The questions as they have always been.", medium: "Tougher: less obvious facts and a little reasoning.", hard: "Very tough, for top students. Hard ranks above Medium and Easy on the leaderboard." };
+const diffName = d => { for (let i = 0; i < DIFFS.length; i++) if (DIFFS[i][0] === d) return DIFFS[i][1]; return "Easy"; };
+const diffTag = d => (d && d !== "easy" ? " (" + diffName(d) + ")" : "");
+const diffSeg = (id, cur) => `<div class="seg" id="${id}" role="group" aria-label="Difficulty">${DIFFS.map(d => `<button data-d="${d[0]}" aria-pressed="${d[0] === cur}">${d[1]}</button>`).join("")}</div>`;
 const SUBJ_MID = ["Mathematics", "Science", "Social Science", "English", "Hindi"];
 const SUBJ_SEC = ["Mathematics", "Science", "Social Science: History", "Social Science: Geography", "Social Science: Political Science", "Social Science: Economics", "English", "Hindi"];
 const SUBJ_SENIOR = ["Physics", "Chemistry", "Biology", "Mathematics", "English", "Hindi", "Accountancy", "Business Studies", "Economics", "History", "Geography", "Political Science", "Sociology", "Psychology", "Computer Science", "Informatics Practices", "Physical Education"];
@@ -524,12 +529,15 @@ function drawCatNote() {
   say("#cats-note", (n === 0 || n === CATS.length ? "Full mix of every topic." : n + (n === 1 ? " topic" : " topics") + " selected, mixed together.") +
     (KCATS.indexOf("current") >= 0 ? " Current affairs comes from the AI’s knowledge, so the newest events may be missing." : ""));
 }
+let KDIFF = "easy";
 function renderKbc() {
   G = null; KCATS = loadCats();
+  try { const d = localStorage.getItem("kb-diff"); KDIFF = d === "medium" || d === "hard" ? d : "easy"; } catch (_e) { KDIFF = "easy"; }
   let cls = "5th Class"; try { cls = localStorage.getItem("kb-cls") || cls; } catch (_e) {}
   $("#view").innerHTML = `<section class="panel"><h1>The hot seat is open</h1>
     <p class="muted">Fifteen questions that climb from easy to tough. Safe havens at Level 5 (${rupee(10000)}) and Level 10 (${rupee(320000)}). You get 30 seconds at first, then 45 and 60.</p>
-    <div class="row" style="margin-top:1rem"><label for="cls" class="muted">Level</label><select id="cls">${classOptions([...CLASSES, "General GK"], cls)}</select></div>
+    <div class="row" style="margin-top:1rem"><label for="cls" class="muted">Level</label><select id="cls">${classOptions([...CLASSES, "General GK"], cls)}</select>
+    <span class="muted">Difficulty</span>${diffSeg("kdiff", KDIFF)}</div><p class="small muted" id="kdiff-hint" style="margin:.5rem 0 0">${DIFF_HINT[KDIFF]}</p>
     <p class="small muted" style="margin:1.1rem 0 .5rem"><b>Topics.</b> Pick one or several and they are mixed together. Pick none for a full mix.</p>
     <div class="chips" id="chips">${CATS.map(c => `<button class="chip" data-cat="${c[0]}" aria-pressed="${KCATS.indexOf(c[0]) >= 0}">${esc(c[1])}</button>`).join("")}</div>
     <div class="row"><button class="btn small" id="cats-all">Select all</button><button class="btn small" id="cats-none">Clear</button><span class="muted small" id="cats-note"></span></div>
@@ -542,22 +550,27 @@ function renderKbc() {
   };
   const setAll = on => { KCATS = on ? CATS.map(c => c[0]) : []; $$(".chip").forEach(x => x.setAttribute("aria-pressed", String(on))); saveCats(); drawCatNote(); };
   $("#cats-all").onclick = () => setAll(true); $("#cats-none").onclick = () => setAll(false);
+  $("#kdiff").onclick = e => {
+    const b = e.target.closest("[data-d]"); if (!b) return; KDIFF = b.dataset.d;
+    try { localStorage.setItem("kb-diff", KDIFF); } catch (_e) {}
+    $$("#kdiff button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); $("#kdiff-hint").textContent = DIFF_HINT[KDIFF];
+  };
   $("#go").onclick = startKbc; drawCatNote();
 }
 async function startKbc() {
   unlockSpeech(); audio(); const cls = $("#cls").value; try { localStorage.setItem("kb-cls", cls); } catch (_e) {}
   $("#go").disabled = true; $("#msg").innerHTML = '<span class="spin"></span> Writing your questions…'; $("#msg").className = "msg";
   await loadConfig();
-  const r = await generate({ kind: "kbc", cls, cats: KCATS.slice() });
+  const diff = KDIFF, r = await generate({ kind: "kbc", cls, cats: KCATS.slice(), difficulty: diff });
   if (!r.ok) { say("#msg", r.error, true); $("#go").disabled = false; return; }
-  G = { gid: r.data.gid, qs: r.data.questions, i: 0, hidden: [], life: { ff: 1, poll: 1, ph: 1 }, extra: "", cls, busy: false };
+  G = { gid: r.data.gid, qs: r.data.questions, i: 0, hidden: [], life: { ff: 1, poll: 1, ph: 1 }, extra: "", cls, diff, busy: false };
   showQ();
 }
 function markReady(gid, lvl, tries = 2) { rpc("kbc_ready", { p_tok: auth.token, p_gid: gid, p_lvl: lvl }).then(r => { if (!r.ok && r.net && tries > 1) setTimeout(() => markReady(gid, lvl, tries - 1), 1000); }); }
 function showQ() { G.t0 = Date.now(); G.ttsUsed = false; G.sel = -1; G.locked = false; G.enter = true; drawQ(); markReady(G.gid, G.i); if (ttsOn() && userAuto()) readKbc(); }
 function drawQ() {
   const q = G.qs[G.i], enter = G.enter; G.enter = false;
-  $("#view").innerHTML = `<div class="game${enter ? " enter" : ""}"><section class="panel"><div class="row" style="justify-content:space-between"><b>Question ${G.i + 1} of 15 · ${rupee(LADDER[G.i])}</b><span id="tl" class="muted"></span></div>
+  $("#view").innerHTML = `<div class="game${enter ? " enter" : ""}"><section class="panel"><div class="row" style="justify-content:space-between"><b>Question ${G.i + 1} of 15 · ${rupee(LADDER[G.i])}</b>${G.diff && G.diff !== "easy" ? ` <span class="badge">${diffName(G.diff)}</span>` : ""}<span id="tl" class="muted"></span></div>
     <div class="timer" aria-hidden="true"><i id="tb" style="width:100%"></i></div><p class="q">${esc(q.q)}</p>
     <div class="opts">${q.options.map((o, k) => `<button class="opt ${G.hidden.includes(k) ? "gone" : ""} ${G.sel === k ? "pick" : ""}" data-k="${k}"><b>${"ABCD"[k]}</b><span>${esc(o)}</span></button>`).join("")}</div>
     <div class="lockrow"><button class="btn primary" id="lock" ${G.sel < 0 ? "disabled" : ""}>🔒 Lock answer</button><span id="lockhint" class="muted small">Choose an option, then lock it in. If time runs out, your selected option becomes your answer.</span></div>
@@ -648,9 +661,9 @@ async function quitKbc() {
   endKbc(r.data.score, "You walked away with");
 }
 function endKbc(amount, title) {
-  stopTimer(); stopSpeech(); const cls = G.cls, reached = G.i + 1; G = null;
+  stopTimer(); stopSpeech(); const cls = G.cls, reached = G.i + 1, diff = G.diff; G = null;
   $("#view").innerHTML = `<section class="panel win" style="text-align:center;position:relative;overflow:hidden"><h1>${esc(title)}</h1><p class="big" id="bigamt">${rupee(amount)}</p>
-    <p class="muted">You reached question ${reached} in ${esc(cls)}.${amount > 0 ? " Your score was recorded by the server." : ""}</p>
+    <p class="muted">You reached question ${reached} in ${esc(cls)}${diffTag(diff)}.${amount > 0 ? " Your score was recorded by the server." : ""}</p>
     <div class="row" style="justify-content:center;margin-top:1rem"><button class="btn primary" id="again">Play again</button><a class="btn" href="#leaderboard" style="text-decoration:none">See leaderboard</a></div></section>`;
   $("#again").onclick = renderKbc; countUp($("#bigamt"), amount, 1300); if (amount === LADDER[14]) sparks($(".panel.win"), 44, 240);
 }
@@ -674,7 +687,7 @@ function drawNotes() {
 }
 
 /* ---- CBSE / NCERT: pick class, subject and (optionally) chapters ---- */
-let CB = { cls: "10th Class", subject: "", list: [], picked: {} };
+let CB = { cls: "10th Class", subject: "", list: [], picked: {}, diff: "easy" };
 const cbPicked = () => CB.list.filter(c => CB.picked[c]);
 function chapHTML() {
   return CB.list.length ? `<div class="chlist" role="group" aria-label="Chapters">${CB.list.map((c, i) => `<label class="chk"><input type="checkbox" data-ch="${i}" ${CB.picked[c] ? "checked" : ""}><span>${esc(c)}</span></label>`).join("")}</div>` : "";
@@ -689,7 +702,8 @@ function drawCbse() {
     <div class="row" style="margin-top:.9rem"><button class="btn" id="cb-load">Show chapters</button><span class="muted small">Optional. Leave everything unticked to be quizzed on the whole book.</span></div>
     <p id="cb-lmsg" class="msg" role="status"></p><div id="cb-chap">${chapHTML()}</div>
     <div class="row" style="margin-top:.7rem"><input id="cb-custom" type="text" maxlength="80" placeholder="Add a chapter yourself" aria-label="Add a chapter name" autocomplete="off"><button class="btn small" id="cb-add">Add</button></div>
-    <div class="row" style="margin-top:1.1rem"><button class="btn primary" id="cmk">Make quiz</button><span class="muted small" id="cb-count"></span></div><p id="cmsg" class="msg" role="status"></p>`;
+    <div class="row" style="margin-top:1.1rem"><span class="muted">Difficulty</span>${diffSeg("cdiff", CB.diff)}</div>
+    <div class="row" style="margin-top:.9rem"><button class="btn primary" id="cmk">Make quiz</button><span class="muted small" id="cb-count"></span></div><p id="cmsg" class="msg" role="status"></p>`;
   $("#cb-cls").onchange = e => { CB.cls = e.target.value; CB.subject = ""; drawCbse(); };
   $("#cb-sub").onchange = e => { CB.subject = e.target.value; CB.list = []; CB.picked = {}; $("#cb-chap").innerHTML = ""; say("#cb-lmsg", ""); cbCount(); };
   $("#cb-load").onclick = loadChapters;
@@ -705,6 +719,7 @@ function drawCbse() {
     $("#cb-custom").value = ""; $("#cb-chap").innerHTML = chapHTML(); cbCount();
   };
   $("#cb-add").onclick = add; $("#cb-custom").onkeydown = e => { if (e.key === "Enter") add(); };
+  $("#cdiff").onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; CB.diff = b.dataset.d; $$("#cdiff button").forEach(x => x.setAttribute("aria-pressed", String(x === b))); };
   $("#cmk").onclick = makeCbse; cbCount();
 }
 async function loadChapters() {
@@ -721,10 +736,10 @@ async function makeCbse() {
   unlockSpeech(); await loadConfig();
   const chapters = cbPicked();
   $("#cmk").disabled = true; $("#cmsg").className = "msg"; $("#cmsg").innerHTML = '<span class="spin"></span> Writing questions…';
-  const r = await generate({ kind: "cbse", cls: CB.cls, subject: CB.subject, chapters });
+  const r = await generate({ kind: "cbse", cls: CB.cls, subject: CB.subject, chapters, difficulty: CB.diff });
   if (!$("#cmk")) return;
   if (!r.ok) { say("#cmsg", r.error, true); $("#cmk").disabled = false; return; }
-  S = { gid: r.data.gid, qs: r.data.questions, pick: Array(10).fill(-1), cls: CB.cls + " · " + CB.subject + (chapters.length ? " (" + chapters.length + (chapters.length === 1 ? " chapter)" : " chapters)") : "") };
+  S = { gid: r.data.gid, qs: r.data.questions, pick: Array(10).fill(-1), cls: CB.cls + " · " + CB.subject + (chapters.length ? " (" + chapters.length + (chapters.length === 1 ? " chapter)" : " chapters)") : "") + diffTag(CB.diff) };
   drawStudy();
 }
 async function extractText(f) {
@@ -779,9 +794,9 @@ async function renderLb() {
     say("#lbmsg", "Loading…");
     const r = await rpc("leaderboard", { p_cls: c || null, p_lim: 20 }); if (!$("#lb")) return;
     if (!r.ok) { $("#lb").innerHTML = ""; return say("#lbmsg", r.error, true); }
-    say("#lbmsg", r.data.length ? "Higher class levels rank first, then the higher score. Scores come from the server, so they can’t be edited." : "No scores yet. Be the first.");
+    say("#lbmsg", r.data.length ? "Higher class levels rank first, then harder difficulty, then the higher score. Scores come from the server, so they can’t be edited." : "No scores yet. Be the first.");
     const medal = ["🥇", "🥈", "🥉"];
-    $("#lb").innerHTML = r.data.map((x, i) => `<li class="${x.username === auth.username ? "me" : ""}" style="animation-delay:${i * 45}ms"><span class="rk">${medal[x.rank - 1] || x.rank}</span>${avHTML(x)}<span>${esc(x.username)} <span class="muted small">${esc(x.cls)} · Q${x.reached}</span></span><span class="vl">${rupee(x.score)}</span></li>`).join("");
+    $("#lb").innerHTML = r.data.map((x, i) => `<li class="${x.username === auth.username ? "me" : ""}" style="animation-delay:${i * 45}ms"><span class="rk">${medal[x.rank - 1] || x.rank}</span>${avHTML(x)}<span>${esc(x.username)} <span class="muted small">${esc(x.cls)} · ${diffName(x.difficulty)} · Q${x.reached}</span></span><span class="vl">${rupee(x.score)}</span></li>`).join("");
   };
   $("#lbc").onchange = load; load();
 }
